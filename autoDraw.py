@@ -5,8 +5,22 @@ import signal
 import subprocess
 import sys
 import time
+import threading
+import queue
 from datetime import datetime
 from pathlib import Path
+
+
+import gpiod
+import gpiodevice
+from gpiod.line import Bias, Direction, Edge
+
+from PIL import Image
+from inky.auto import auto
+
+import gpiod
+import gpiodevice
+from gpiod.line import Bias, Direction, Edge
 
 # Optional Inky display support
 try:
@@ -23,6 +37,22 @@ except ImportError:
 
 OUTPUT_DIR = Path("/home/rob/generated_images")
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+
+# These are the GPIO numbers used by Pimoroni's current 7-colour
+# button example on Raspberry Pi 5.
+# If your platform differs, check with: gpioinfo
+BUTTONS = [5, 6, 16, 24]   # A, B, C, D
+LABELS = ["A", "B", "C", "D"]
+
+# Button assignments
+BUTTON_NEXT = "A"   # button 1
+BUTTON_PREV = "B"   # button 2
+
+# Supported image file types
+IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".bmp", ".webp"}
+
+# Optional debounce
+DEBOUNCE_SECONDS = 0.25
 
 # How long to leave each image on screen before generating another one
 DISPLAY_SECONDS = 120
@@ -316,12 +346,128 @@ def display_on_inky(image_path):
     except Exception as ex:
         print(f"[ERROR] Failed to display image: {ex}")
 
+class ImageBrowser:
+    def __init__(self, image_dir: Path):
+        self.image_dir = image_dir
+        self.images = self.scan_images()
+        self.index = 0
+        self.lock = threading.Lock()
+
+    def scan_images(self):
+        if not self.image_dir.exists():
+            return []
+
+        files = [
+            p for p in self.image_dir.iterdir()
+            if p.is_file() and p.suffix.lower() in IMAGE_EXTENSIONS
+        ]
+        files.sort()
+        return files
+
+    def refresh(self):
+        with self.lock:
+            old_name = None
+            if self.images and 0 <= self.index < len(self.images):
+                old_name = self.images[self.index].name
+
+            self.images = self.scan_images()
+
+            if not self.images:
+                self.index = 0
+                return None
+
+            if old_name:
+                for i, path in enumerate(self.images):
+                    if path.name == old_name:
+                        self.index = i
+                        break
+                else:
+                    self.index = min(self.index, len(self.images) - 1)
+            else:
+                self.index = min(self.index, len(self.images) - 1)
+
+            return self.images[self.index]
+
+    def current(self):
+        with self.lock:
+            if not self.images:
+                return None
+            self.index = max(0, min(self.index, len(self.images) - 1))
+            return self.images[self.index]
+
+    def next(self):
+        with self.lock:
+            if not self.images:
+                return None
+            self.index = (self.index + 1) % len(self.images)
+            return self.images[self.index]
+
+    def prev(self):
+        with self.lock:
+            if not self.images:
+                return None
+            self.index = (self.index - 1) % len(self.images)
+            return self.images[self.index]
+
+
+
+class ButtonWatcher(threading.Thread):
+    def __init__(self, command_queue: queue.Queue):
+        super().__init__(daemon=True)
+        self.command_queue = command_queue
+        self.stop_event = threading.Event()
+        self.last_press_time = 0.0
+
+        input_settings = gpiod.LineSettings(
+            direction=Direction.INPUT,
+            bias=Bias.PULL_UP,
+            edge_detection=Edge.FALLING
+        )
+
+        self.chip = gpiodevice.find_chip_by_platform()
+        self.offsets = [self.chip.line_offset_from_id(pin) for pin in BUTTONS]
+        line_config = dict.fromkeys(self.offsets, input_settings)
+
+        self.request = self.chip.request_lines(
+            consumer="inky-image-browser",
+            config=line_config
+        )
+
+    def run(self):
+        print("[BUTTONS] Watching buttons...")
+
+        while not self.stop_event.is_set():
+            events = self.request.read_edge_events()
+            now = time.monotonic()
+
+            for event in events:
+                if now - self.last_press_time < DEBOUNCE_SECONDS:
+                    continue
+
+                self.last_press_time = now
+
+                try:
+                    idx = self.offsets.index(event.line_offset)
+                except ValueError:
+                    continue
+
+                label = LABELS[idx]
+                print(f"[BUTTONS] Pressed {label}")
+
+                if label == BUTTON_NEXT:
+                    self.command_queue.put("next")
+                elif label == BUTTON_PREV:
+                    self.command_queue.put("prev")
+
 
 # ------------------------------------------------------------
 # Main loop
 # ------------------------------------------------------------
 
 running = True
+commands = queue.Queue()
+watcher = ButtonWatcher(commands)
+watcher.start()
 
 
 def handle_sigint(signum, frame):
