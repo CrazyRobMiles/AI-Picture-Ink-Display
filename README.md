@@ -88,14 +88,15 @@ controller.py           Application state and control logic
 
 ## Stable Diffusion Setup
 
-This application expects a working command-line Stable Diffusion tool.
+This application expects a working command-line Stable Diffusion tool. The examples assume that you have stored the code and the sd installation in the path **/home/rob**
 
 Example used:
 
 ```bash
 /home/rob/OnnxStream/src/build/sd \
   --prompt "a mechanical owl" \
-  --rpi lowmem \
+  --models-path /home/rob/Models" \
+  --rpi-lowmem \
   --passes 6
 ```
 
@@ -107,8 +108,9 @@ Edit `config.py`:
 SD_COMMAND = "/home/rob/OnnxStream/src/build/sd"
 
 SD_EXTRA_ARGS = [
-    "--rpi", "lowmem",
+    "--rpi-lowmem",
     "--passes", "6",
+    "--models-path", "/home/rob/Models"
 ]
 ```
 
@@ -156,7 +158,7 @@ INPUT_TYPE = "buttons"   # or "keyboard"
 
 ### Pimoroni Buttons
 
-Default mapping:
+Default mapping for the buttons on the [Pimoroni Inky Impression 7.3 inch display](https://shop.pimoroni.com/products/inky-impression)
 
 | Button | Action            |
 | ------ | ----------------- |
@@ -192,9 +194,7 @@ Default mapping:
 
 ### Returning to Auto Mode
 
-* Press the toggle button (C or Space), or
-* Use automatic timeout (if enabled)
-
+* Press the toggle button (C or Space)
 ---
 
 ## Image Storage
@@ -227,11 +227,12 @@ Prompts are constructed from word banks:
 * styles
 * moods
 * details
+* environment
 
 Example:
 
 ```text
-a mechanical owl, engraving, mysterious, high contrast
+a mechanical owl, engraving, mysterious, high contrast,above the clouds
 ```
 
 These can be customised in `config.py`.
@@ -246,8 +247,7 @@ These can be customised in `config.py`.
 
 * **Display system**:
 
-  * Threaded for e-ink
-  * Main-thread driven for HDMI (required for SDL/EGL)
+  * Main-thread driven for HDMI (required for SDL/EGL) and e-ink
 
 * **Controller** manages:
 
@@ -320,3 +320,7 @@ This project turns a Raspberry Pi into a self-contained generative art system:
 It is designed to be modular, extensible, and adaptable to different display hardware.
 
 ---
+
+Have fun!
+
+Rob Miles : [robmiles.com](https://robmiles.com)

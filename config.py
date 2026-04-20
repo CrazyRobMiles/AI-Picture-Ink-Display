@@ -9,6 +9,7 @@ IMAGE_DIR.mkdir(parents=True, exist_ok=True)
 
 DISPLAY_TYPE = "inky"          # "inky" or "hdmi"
 INPUT_TYPE = "buttons"         # "buttons" or "keyboard"
+DISPLAY_FIT_MODE = "stretch"   # "contain", "crop", or "stretch"
 
 AUTO_DISPLAY_NEW_IMAGES = True
 DISPLAY_QUEUE_POLL_SECONDS = 0.1
@@ -26,7 +27,7 @@ SD_COMMAND = "/home/rob/OnnxStream/src/build/sd"
 # Extra arguments for your working setup
 SD_EXTRA_ARGS = [
     "--rpi-lowmem",
-    "--steps", "6",
+    "--steps", "10",
     "--models-path", "/home/rob/Models" 
 ]
 
@@ -39,47 +40,87 @@ SD_OUTPUT_ARG = "--output"
 # ------------------------------------------------------------
 
 SUBJECTS = [
-    "a lonely lighthouse on a cliff",
+    "a lonely lighthouse",
+    "a Victorian greenhouse",
     "a steam train crossing a viaduct",
-    "a Victorian observatory",
-    "a mechanical owl",
     "an ancient oak tree",
-    "a moonlit ruined abbey",
-    "a floating island above clouds",
-    "a forest path in mist",
-    "a glass greenhouse full of exotic plants",
-    "a quiet harbour at dusk",
+    "a moonlit city street",
+    "a retro-futuristic robot",
+    "a starship captain",
+    "an old telephone",
+    "a happy dog",
+    "a horse",
+    "an old camera",
+    "a futuristic camera",
+    "an old vending machine",
+    "an old TV",
+    "a cup of coffee",
+    "an old style hat",
+    "a football player",
+    "a futuristic cruise ship",
+    "an brass telescope",
+    "an old style computer",
+    "a bicycle",
+    "a piano",
+    "a circus act",
+    "a busy market",
+    "an old car",
+    "a flying car",
 ]
 
 STYLES = [
+    "ascii art",
     "oil painting",
-    "engraving",
-    "storybook illustration",
-    "woodcut print",
+    "watercolour illustration",
+    "storybook art",
     "cinematic concept art",
-    "dreamlike surrealism",
-    "ink drawing",
     "retro poster art",
+    "dreamlike surrealism",
+    "detailed pencil drawing",
+    "bold colored cartoon",
+    "newspaper photograph",
+    "fantasy illustration",
+    "Japanese woodblock print style",
+    "soft pastel painting"
 ]
 
 MOODS = [
-    "mysterious",
     "peaceful",
+    "melancholic",
+    "mysterious",
+    "uplifting",
     "haunting",
     "nostalgic",
-    "uplifting",
-    "otherworldly",
+    "epic",
+    "playful",
+    "quiet and reflective",
+    "otherworldly"
 ]
 
 DETAILS = [
-    "high contrast",
-    "dramatic lighting",
-    "bold shapes",
-    "strong composition",
-    "intricate detail",
-    "atmospheric depth",
     "rich textures",
-    "simple composition",
+    "intricate details",
+    "subtle colour palette",
+    "layered depth",
+    "fine brushwork",
+    "highly detailed background",
+    "delicate atmosphere",
+    "beautiful contrast",
+    "strong focal point",
+    "carefully balanced composition"
+]
+
+ENVIRONMENT = [
+    "surrounded by wildflowers",
+    "in a snowy landscape",
+    "overlooking the sea",
+    "in autumn woods",
+    "inside a ruined cathedral",
+    "among rolling hills",
+    "above the clouds",
+    "beside a still lake",
+    "in a rain-soaked alley",
+    "on a windswept cliff"
 ]
 
 # ------------------------------------------------------------

@@ -19,6 +19,7 @@ from config import (
     MOODS,
     STYLES,
     SUBJECTS,
+    ENVIRONMENT
 )
 
 class PromptBuilder:
@@ -30,7 +31,8 @@ class PromptBuilder:
             f"{random.choice(SUBJECTS)}, "
             f"{random.choice(STYLES)}, "
             f"{random.choice(MOODS)}, "
-            f"{random.choice(DETAILS)}"
+            f"{random.choice(DETAILS)}, "
+            f"{random.choice(ENVIRONMENT)}"
         )
 
     def build_non_repeating_prompt(self, max_attempts=20):
