@@ -1,14 +1,8 @@
-import threading
-import time
 from pathlib import Path
 
 from PIL import Image, ImageOps
 
-from config import (
-    DISPLAY_QUEUE_POLL_SECONDS,
-    HDMI_BACKGROUND,
-    HDMI_FULLSCREEN,
-)
+from config import HDMI_BACKGROUND, HDMI_FULLSCREEN
 
 
 def fit_image(img, target_width, target_height, background=(255, 255, 255)):
@@ -29,7 +23,6 @@ class DisplayDevice:
         raise NotImplementedError
 
     def process_events(self):
-        """Optional hook for windowed backends."""
         pass
 
 
@@ -82,49 +75,4 @@ class HdmiDisplayDevice(DisplayDevice):
         self.pygame.display.flip()
 
     def process_events(self):
-        # Prevent the window manager from thinking the app is hung.
         self.pygame.event.pump()
-
-
-class DisplayWorker(threading.Thread):
-    """
-    Latest-image display worker.
-    Only this thread talks to the display hardware.
-    """
-    def __init__(self, display_device: DisplayDevice):
-        super().__init__(daemon=True)
-        self.display_device = display_device
-        self.running = True
-        self.lock = threading.Lock()
-        self.pending_image = None
-        self.last_image = None
-
-    def request_display(self, image_path: Path):
-        with self.lock:
-            self.pending_image = image_path
-
-    def stop(self):
-        self.running = False
-
-    def run(self):
-        while self.running:
-            image_path = None
-
-            with self.lock:
-                if self.pending_image is not None:
-                    image_path = self.pending_image
-                    self.pending_image = None
-
-            if image_path is not None and image_path != self.last_image:
-                try:
-                    print(f"[DISPLAY] Showing {image_path.name}")
-                    self.display_device.show_image(image_path)
-                    self.last_image = image_path
-                except Exception as ex:
-                    print(f"[DISPLAY ERROR] {ex}")
-            else:
-                try:
-                    self.display_device.process_events()
-                except Exception:
-                    pass
-                time.sleep(DISPLAY_QUEUE_POLL_SECONDS)
