@@ -27,7 +27,7 @@ SD_COMMAND = "/home/rob/OnnxStream/src/build/sd"
 # Extra arguments for your working setup
 SD_EXTRA_ARGS = [
     "--rpi-lowmem",
-    "--steps", "10",
+    "--steps", "20",
     "--models-path", "/home/rob/Models" 
 ]
 
@@ -39,89 +39,114 @@ SD_OUTPUT_ARG = "--output"
 # Prompt banks
 # ------------------------------------------------------------
 
-SUBJECTS = [
-    "a lonely lighthouse",
-    "a Victorian greenhouse",
-    "a steam train crossing a viaduct",
-    "an ancient oak tree",
-    "a moonlit city street",
-    "a retro-futuristic robot",
-    "a starship captain",
-    "an old telephone",
-    "a happy dog",
-    "a horse",
-    "an old camera",
-    "a futuristic camera",
-    "an old vending machine",
-    "an old TV",
-    "a cup of coffee",
-    "an old style hat",
-    "a football player",
-    "a futuristic cruise ship",
-    "an brass telescope",
-    "an old style computer",
-    "a bicycle",
-    "a piano",
-    "a circus act",
-    "a busy market",
-    "an old car",
-    "a flying car",
+PROMPT_BANKS = {
+    "subject": [
+        "a lonely lighthouse",
+        "a Victorian greenhouse",
+        "a steam train crossing a viaduct",
+        "an ancient oak tree",
+        "a moonlit city street",
+        "a retro-futuristic robot",
+#        "a mountain monastery",
+#        "a glass observatory",
+#        "a floating island",
+#        "a mechanical owl",
+        "a starship captain",
+        "an old telephone",
+        "a happy dog",
+        "a horse",
+        "an old camera",
+        "a futuristic camera",
+        "an old vending machine",
+        "an old TV",
+        "a cup of coffee",
+        "an old style hat",
+        "a football player",
+        "a futuristic cruise ship",
+        "an brass telescope",
+        "an old style computer",
+        "a bicycle",
+        "a piano",
+        "a circus act",
+        "a busy market",
+        "an old car",
+        "a flying car",
+        
+        
+    ],
+    "style": [
+        "ascii art",
+        "oil painting",
+        "watercolour illustration",
+        "storybook art",
+        "cinematic concept art",
+        "retro poster art",
+        "dreamlike surrealism",
+        "detailed pencil drawing",
+        "bold colored cartoon",
+        "newspaper photograph",
+        "fantasy illustration",
+        "Japanese woodblock print style",
+        "soft pastel painting"
+    ],
+    "lighting": [
+        "golden hour lighting",
+        "misty morning light",
+        "dramatic sunset lighting",
+        "moonlight",
+        "soft diffused light",
+        "stormy sky lighting",
+        "candlelit atmosphere",
+        "bright spring daylight",
+        "fog with shafts of light",
+        "twilight glow"
+    ],
+    "mood": [
+        "peaceful",
+        "melancholic",
+        "mysterious",
+        "uplifting",
+        "haunting",
+        "nostalgic",
+        "epic",
+        "playful",
+        "quiet and reflective",
+        "otherworldly"
+    ],
+    "detail": [
+        "rich textures",
+        "intricate details",
+        "subtle colour palette",
+        "layered depth",
+        "fine brushwork",
+        "highly detailed background",
+        "delicate atmosphere",
+        "beautiful contrast",
+        "strong focal point",
+        "carefully balanced composition"
+    ],
+    "environment": [
+        "surrounded by wildflowers",
+        "in a snowy landscape",
+        "overlooking the sea",
+        "in autumn woods",
+        "inside a ruined cathedral",
+        "among rolling hills",
+        "above the clouds",
+        "beside a still lake",
+        "in a rain-soaked alley",
+        "on a windswept cliff"
+    ]
+}
+
+PROMPT_TEMPLATES = [
+    "{subject}, {environment}, {style}, {lighting}, {mood}, {detail}",
+    "{style} of {subject}, {environment}, {lighting}, {mood}, {detail}",
+    "{subject} in {style}, {lighting}, {environment}, {mood}, {detail}",
 ]
 
-STYLES = [
-    "ascii art",
-    "oil painting",
-    "watercolour illustration",
-    "storybook art",
-    "cinematic concept art",
-    "retro poster art",
-    "dreamlike surrealism",
-    "detailed pencil drawing",
-    "bold colored cartoon",
-    "newspaper photograph",
-    "fantasy illustration",
-    "Japanese woodblock print style",
-    "soft pastel painting"
-]
-
-MOODS = [
-    "peaceful",
-    "melancholic",
-    "mysterious",
-    "uplifting",
-    "haunting",
-    "nostalgic",
-    "epic",
-    "playful",
-    "quiet and reflective",
-    "otherworldly"
-]
-
-DETAILS = [
-    "rich textures",
-    "intricate details",
-    "subtle colour palette",
-    "layered depth",
-    "fine brushwork",
-    "highly detailed background",
-    "delicate atmosphere",
-    "beautiful contrast",
-    "strong focal point",
-    "carefully balanced composition"
-]
-
-ENVIRONMENT = [
-    "surrounded by wildflowers",
-    "in a snowy landscape",
-    "overlooking the sea",
-    "in autumn woods",
-    "inside a ruined cathedral",
-    "among rolling hills",
-    "above the clouds",
-    "beside a still lake",
-    "in a rain-soaked alley",
-    "on a windswept cliff"
-]
+# If enabled, this text is appended to every prompt
+GLOBAL_QUALITY_HINT = "high detail, beautiful composition"
 
 # ------------------------------------------------------------
 # Pimoroni button settings

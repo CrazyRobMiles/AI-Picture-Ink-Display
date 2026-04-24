@@ -15,26 +15,40 @@ from config import (
     SD_EXTRA_ARGS,
     SD_OUTPUT_ARG,
     SD_PROMPT_ARG,
-    DETAILS,
-    MOODS,
-    STYLES,
-    SUBJECTS,
-    ENVIRONMENT
+    PROMPT_BANKS,
+    PROMPT_TEMPLATES,
+    GLOBAL_QUALITY_HINT,
+    MAX_RECENT_PROMPTS
 )
 
 class PromptBuilder:
     def __init__(self):
         self.recent_prompts = []
+        
+    def choose(self, parts, used=None):
+        """Choose one random item from a list."""
+        return random.choice(parts)
+        
 
     def build_prompt(self):
-        return (
-            f"{random.choice(SUBJECTS)}, "
-            f"{random.choice(STYLES)}, "
-            f"{random.choice(MOODS)}, "
-            f"{random.choice(DETAILS)}, "
-            f"{random.choice(ENVIRONMENT)}"
-        )
+        """Build a prompt from the prompt banks."""
+        parts = {
+            "subject": self.choose(PROMPT_BANKS["subject"]),
+            "style": self.choose(PROMPT_BANKS["style"]),
+            "lighting": self.choose(PROMPT_BANKS["lighting"]),
+            "mood": self.choose(PROMPT_BANKS["mood"]),
+            "detail": self.choose(PROMPT_BANKS["detail"]),
+            "environment": self.choose(PROMPT_BANKS["environment"]),
+        }
 
+        template = random.choice(PROMPT_TEMPLATES)
+        prompt = template.format(**parts)
+
+        if GLOBAL_QUALITY_HINT:
+            prompt = f"{prompt}, {GLOBAL_QUALITY_HINT}"
+
+        return prompt
+    
     def build_non_repeating_prompt(self, max_attempts=20):
         for _ in range(max_attempts):
             prompt = self.build_prompt()
