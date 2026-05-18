@@ -52,14 +52,18 @@ The system runs continuously, generating a stream of evolving images while allow
 ## Project Structure
 
 ```text
-main.py                 Entry point
-config.py               Configuration and prompt definitions
+main.py                 Entry point (full interactive frame)
+autoDraw.py             Standalone auto-generate-and-display loop
+config.py               Configuration and default prompt definitions
 
 display_devices.py      Display backends (Inky, HDMI)
 input_devices.py        Input handlers (buttons, keyboard)
 image_catalog.py        Image indexing and navigation
 generator.py            Stable Diffusion integration
 controller.py           Application state and control logic
+web_viewer.py           Web interface: gallery browser and prompt editor
+
+prompts.json            Runtime prompt overrides (created by the web viewer)
 ```
 
 ---
@@ -123,6 +127,84 @@ Adjust arguments to match your working setup.
 ```bash
 python3 main.py
 ```
+
+For the simpler standalone auto-draw loop (no interactive browsing):
+
+```bash
+python3 autoDraw.py
+```
+
+---
+
+## Web Viewer
+
+`web_viewer.py` provides a browser-based interface served on port **8080**. It has two tabs:
+
+* **Gallery** — browse all generated images with their prompts and timestamps, using on-screen buttons or the arrow keys.
+* **Prompts** — edit the Stable Diffusion prompt banks, templates, and global quality hint directly from the browser. Changes are saved to `prompts.json` and take effect on the next generated image (no restart needed).
+
+### Running manually
+
+```bash
+python3 web_viewer.py
+```
+
+Then open `http://<pi-address>:8080/` in a browser.
+
+The web viewer can run alongside `main.py` or `autoDraw.py`; it only reads and writes files and does not interact with the display hardware.
+
+### How prompt editing works
+
+The web viewer saves edits to `prompts.json` in the project directory. On every iteration, `autoDraw.py` reloads `config.py`, which automatically picks up `prompts.json` if it exists. The original defaults in `config.py` are used as the fallback when no override file is present.
+
+### Autostart on boot (systemd)
+
+Create the service file:
+
+```bash
+sudo nano /etc/systemd/system/ai-web-viewer.service
+```
+
+Paste the following (adjust `User` and paths if your setup differs):
+
+```ini
+[Unit]
+Description=AI Picture Frame Web Viewer
+After=network.target
+
+[Service]
+Type=simple
+User=rob
+WorkingDirectory=/home/rob/AI-Picture-Ink-Display
+ExecStart=/usr/bin/python3 /home/rob/AI-Picture-Ink-Display/web_viewer.py
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+```
+
+Enable and start the service:
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable ai-web-viewer
+sudo systemctl start ai-web-viewer
+```
+
+Check that it is running:
+
+```bash
+sudo systemctl status ai-web-viewer
+```
+
+View logs:
+
+```bash
+journalctl -u ai-web-viewer -f
+```
+
+The same pattern works for `autoDraw.py` — create a second service file (e.g. `ai-autodraw.service`) pointing to `autoDraw.py`.
 
 ---
 

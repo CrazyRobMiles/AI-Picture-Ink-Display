@@ -11,18 +11,20 @@ Then browse to:
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, List, Optional
 
-from flask import Flask, abort, jsonify, render_template_string, send_from_directory, url_for
+from flask import Flask, abort, jsonify, render_template_string, request, send_from_directory, url_for
 
-from config import IMAGE_DIR
+import config
 from image_catalog import IMAGE_EXTENSIONS
 
 WEB_HOST = "0.0.0.0"
 WEB_PORT = 8080
 PROMPT_LOG_NAME = "prompt_log.txt"
+PROMPTS_FILE = Path(__file__).parent / "prompts.json"
 
 
 @dataclass(frozen=True)
@@ -41,11 +43,7 @@ def strip_outer_quotes(text: str) -> str:
 
 
 def load_captions(image_dir: Path) -> Dict[str, Dict[str, str]]:
-    """Load prompt_log.txt entries keyed by image filename.
-
-    Expected current format:
-        ISO_TIMESTAMP | filename.png | prompt text
-    """
+    """Load prompt_log.txt entries keyed by image filename."""
     captions: Dict[str, Dict[str, str]] = {}
     log_path = image_dir / PROMPT_LOG_NAME
 
@@ -58,15 +56,12 @@ def load_captions(image_dir: Path) -> Dict[str, Dict[str, str]]:
                 parts = line.rstrip("\n").split(" | ", 2)
                 if len(parts) != 3:
                     continue
-
                 created, filename, prompt = parts
                 captions[filename] = {
                     "created": created,
                     "caption": strip_outer_quotes(prompt),
                 }
     except OSError:
-        # The generator may be appending while we read. A transient read failure
-        # should not take the viewer down.
         return captions
 
     return captions
@@ -75,7 +70,6 @@ def load_captions(image_dir: Path) -> Dict[str, Dict[str, str]]:
 def scan_images(image_dir: Path) -> List[Path]:
     if not image_dir.exists():
         return []
-
     images = [
         path for path in image_dir.iterdir()
         if path.is_file() and path.suffix.lower() in IMAGE_EXTENSIONS
@@ -85,9 +79,8 @@ def scan_images(image_dir: Path) -> List[Path]:
 
 
 def get_entries() -> List[ImageEntry]:
-    captions = load_captions(IMAGE_DIR)
-    images = scan_images(IMAGE_DIR)
-
+    captions = load_captions(config.IMAGE_DIR)
+    images = scan_images(config.IMAGE_DIR)
     entries: List[ImageEntry] = []
     for index, path in enumerate(images):
         meta = captions.get(path.name, {})
@@ -97,20 +90,22 @@ def get_entries() -> List[ImageEntry]:
             caption=meta.get("caption", path.stem),
             created=meta.get("created", ""),
         ))
-
     return entries
 
 
-def get_entry(index: Optional[int]) -> Optional[ImageEntry]:
-    entries = get_entries()
-    if not entries:
-        return None
-
-    if index is None:
-        return entries[-1]
-
-    index = index % len(entries)
-    return entries[index]
+def load_prompts() -> dict:
+    """Load prompts from prompts.json, falling back to config defaults."""
+    if PROMPTS_FILE.exists():
+        try:
+            with PROMPTS_FILE.open("r", encoding="utf-8") as f:
+                return json.load(f)
+        except (OSError, json.JSONDecodeError):
+            pass
+    return {
+        "PROMPT_BANKS": {k: list(v) for k, v in config.PROMPT_BANKS.items()},
+        "PROMPT_TEMPLATES": list(config.PROMPT_TEMPLATES),
+        "GLOBAL_QUALITY_HINT": config.GLOBAL_QUALITY_HINT,
+    }
 
 
 app = Flask(__name__)
@@ -131,6 +126,10 @@ PAGE_TEMPLATE = """
       --muted: #aaa;
       --button: #333;
       --button-hover: #444;
+      --input-bg: #222;
+      --border: #333;
+      --ok: #4caf50;
+      --err: #f44336;
     }
 
     * { box-sizing: border-box; }
@@ -145,22 +144,58 @@ PAGE_TEMPLATE = """
       font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     }
 
-    header, footer {
+    header {
       padding: 0.75rem 1rem;
       background: var(--panel);
-    }
-
-    header {
       display: flex;
-      justify-content: space-between;
-      gap: 1rem;
       align-items: center;
+      gap: 1rem;
+      flex-shrink: 0;
     }
 
     h1 {
       margin: 0;
       font-size: 1.1rem;
       font-weight: 650;
+    }
+
+    .tabs { display: flex; gap: 0.25rem; }
+
+    .tab-btn {
+      padding: 0.35rem 0.9rem;
+      border: 1px solid var(--border);
+      border-radius: 0.4rem;
+      background: transparent;
+      color: var(--muted);
+      cursor: pointer;
+      font: inherit;
+      font-size: 0.9rem;
+    }
+
+    .tab-btn.active {
+      background: var(--button);
+      color: var(--text);
+      border-color: #555;
+    }
+
+    .tab-btn:hover:not(.active) {
+      background: var(--button);
+      color: var(--text);
+    }
+
+    #counter {
+      margin-left: auto;
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+
+    /* ---- Gallery view ---- */
+
+    #view-gallery {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
     }
 
     main {
@@ -194,13 +229,14 @@ PAGE_TEMPLATE = """
       line-height: 1.4;
     }
 
-    .caption p {
-      margin: 0.25rem 0;
-    }
+    .caption p { margin: 0.25rem 0; }
 
-    .meta {
-      color: var(--muted);
-      font-size: 0.9rem;
+    .meta { color: var(--muted); font-size: 0.9rem; }
+
+    footer {
+      padding: 0.75rem 1rem;
+      background: var(--panel);
+      flex-shrink: 0;
     }
 
     .controls {
@@ -233,91 +269,292 @@ PAGE_TEMPLATE = """
       text-align: center;
       font-size: 1.1rem;
     }
+
+    /* ---- Prompts view ---- */
+
+    #view-prompts {
+      flex: 1;
+      overflow-y: auto;
+      padding: 1.25rem 1rem 2rem;
+    }
+
+    .prompts-container {
+      max-width: 64rem;
+      margin: 0 auto;
+    }
+
+    .prompts-heading {
+      margin: 0 0 0.2rem;
+      font-size: 1rem;
+      font-weight: 600;
+    }
+
+    .hint {
+      color: var(--muted);
+      font-size: 0.85rem;
+      margin: 0 0 1.25rem;
+    }
+
+    .bank-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(18rem, 1fr));
+      gap: 1rem;
+      margin-bottom: 1rem;
+    }
+
+    .bank-section label,
+    .full-row label {
+      display: block;
+      font-size: 0.85rem;
+      font-weight: 600;
+      text-transform: capitalize;
+      color: var(--muted);
+      margin-bottom: 0.35rem;
+    }
+
+    .bank-section textarea,
+    .full-row textarea,
+    .full-row input[type="text"] {
+      width: 100%;
+      background: var(--input-bg);
+      border: 1px solid var(--border);
+      border-radius: 0.4rem;
+      color: var(--text);
+      font: 0.88rem/1.5 monospace;
+      padding: 0.5rem 0.6rem;
+      resize: vertical;
+    }
+
+    .full-row {
+      margin-bottom: 1rem;
+    }
+
+    .full-row input[type="text"] {
+      font: inherit;
+      padding: 0.5rem 0.6rem;
+    }
+
+    .form-actions {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      padding-top: 0.25rem;
+    }
+
+    #save-prompts {
+      min-width: 9rem;
+      background: #2a6;
+      color: #fff;
+      border: 0;
+    }
+
+    #save-prompts:hover { background: #3b7; }
+
+    .save-ok  { color: var(--ok);  font-size: 0.9rem; }
+    .save-err { color: var(--err); font-size: 0.9rem; }
   </style>
 </head>
 <body>
-  <header>
-    <h1>AI Picture Frame</h1>
-    <div id="counter" class="meta"></div>
-  </header>
 
+<header>
+  <h1>AI Picture Frame</h1>
+  <nav class="tabs">
+    <button class="tab-btn active" id="tab-gallery">Gallery</button>
+    <button class="tab-btn" id="tab-prompts">Prompts</button>
+  </nav>
+  <div id="counter" class="meta"></div>
+</header>
+
+<!-- Gallery view -->
+<div id="view-gallery">
   <main id="app">
     <div class="empty">Loading images…</div>
   </main>
-
   <footer>
     <div class="controls">
-      <button id="prev" type="button">◀ Previous</button>
+      <button id="prev" type="button">&#9664; Previous</button>
       <button id="latest" type="button">Latest</button>
-      <button id="next" type="button">Next ▶</button>
+      <button id="next" type="button">Next &#9654;</button>
     </div>
   </footer>
+</div>
 
-  <script>
-    let currentIndex = null;
-    let currentCount = 0;
+<!-- Prompts view -->
+<div id="view-prompts" style="display:none">
+  <div class="prompts-container">
+    <p class="prompts-heading">Prompt Banks</p>
+    <p class="hint">Each line is one option. Blank lines are ignored. Changes take effect on the next generated image.</p>
 
-    async function loadImage(index) {
-      const target = index === null ? '/api/current' : `/api/image/${index}`;
-      const response = await fetch(target, { cache: 'no-store' });
+    <div class="bank-grid" id="bank-grid">
+      <div class="empty">Loading&hellip;</div>
+    </div>
 
-      if (response.status === 404) {
-        document.getElementById('counter').textContent = '';
-        document.getElementById('app').innerHTML = '<div class="empty">No generated images found yet.</div>';
-        currentIndex = null;
-        currentCount = 0;
-        return;
+    <div class="full-row">
+      <label>Templates &mdash; <span style="font-weight:normal">use {subject}, {style}, {lighting}, {mood}, {detail}, {environment}</span></label>
+      <textarea id="prompt-templates" rows="4" spellcheck="false"></textarea>
+    </div>
+
+    <div class="full-row">
+      <label>Global Quality Hint &mdash; <span style="font-weight:normal">appended to every prompt</span></label>
+      <input type="text" id="quality-hint" spellcheck="false">
+    </div>
+
+    <div class="form-actions">
+      <button id="save-prompts" type="button">Save Changes</button>
+      <span id="save-status"></span>
+    </div>
+  </div>
+</div>
+
+<script>
+  // ---- Gallery ----
+
+  let currentIndex = null;
+  let currentCount = 0;
+
+  async function loadImage(index) {
+    const target = index === null ? '/api/current' : `/api/image/${index}`;
+    const response = await fetch(target, { cache: 'no-store' });
+
+    if (response.status === 404) {
+      document.getElementById('counter').textContent = '';
+      document.getElementById('app').innerHTML = '<div class="empty">No generated images found yet.</div>';
+      currentIndex = null;
+      currentCount = 0;
+      return;
+    }
+
+    const data = await response.json();
+    currentIndex = data.index;
+    currentCount = data.count;
+
+    document.getElementById('counter').textContent = `${data.index + 1} of ${data.count}`;
+    document.getElementById('app').innerHTML = `
+      <div class="image-wrap">
+        <img src="${data.image_url}?v=${encodeURIComponent(data.filename)}" alt="${escapeHtml(data.caption)}">
+      </div>
+      <div class="caption">
+        <p>${escapeHtml(data.caption)}</p>
+        <p class="meta">${escapeHtml(data.filename)}${data.created ? ' &middot; ' + escapeHtml(data.created) : ''}</p>
+      </div>
+    `;
+  }
+
+  function escapeHtml(value) {
+    return String(value)
+      .replaceAll('&', '&amp;')
+      .replaceAll('<', '&lt;')
+      .replaceAll('>', '&gt;')
+      .replaceAll('"', '&quot;')
+      .replaceAll("'", '&#039;');
+  }
+
+  document.getElementById('prev').addEventListener('click', () => {
+    if (currentCount > 0) loadImage((currentIndex - 1 + currentCount) % currentCount);
+  });
+  document.getElementById('next').addEventListener('click', () => {
+    if (currentCount > 0) loadImage((currentIndex + 1) % currentCount);
+  });
+  document.getElementById('latest').addEventListener('click', () => loadImage(null));
+
+  document.addEventListener('keydown', (e) => {
+    if (activeTab !== 'gallery') return;
+    if (e.key === 'ArrowLeft') document.getElementById('prev').click();
+    if (e.key === 'ArrowRight') document.getElementById('next').click();
+    if (e.key === 'Home') document.getElementById('latest').click();
+  });
+
+  setInterval(() => {
+    if (activeTab === 'gallery' && currentIndex !== null) loadImage(currentIndex);
+  }, 10000);
+
+  loadImage(null);
+
+  // ---- Tab switching ----
+
+  let activeTab = 'gallery';
+  let promptsLoaded = false;
+
+  function switchTab(tab) {
+    activeTab = tab;
+    document.getElementById('tab-gallery').classList.toggle('active', tab === 'gallery');
+    document.getElementById('tab-prompts').classList.toggle('active', tab === 'prompts');
+    document.getElementById('view-gallery').style.display = tab === 'gallery' ? '' : 'none';
+    document.getElementById('view-prompts').style.display = tab === 'prompts' ? '' : 'none';
+    document.getElementById('counter').style.display = tab === 'gallery' ? '' : 'none';
+    if (tab === 'prompts' && !promptsLoaded) loadPrompts();
+  }
+
+  document.getElementById('tab-gallery').addEventListener('click', () => switchTab('gallery'));
+  document.getElementById('tab-prompts').addEventListener('click', () => switchTab('prompts'));
+
+  // ---- Prompts editor ----
+
+  async function loadPrompts() {
+    const resp = await fetch('/api/prompts', { cache: 'no-store' });
+    const data = await resp.json();
+
+    const grid = document.getElementById('bank-grid');
+    grid.innerHTML = '';
+    for (const [key, items] of Object.entries(data.PROMPT_BANKS)) {
+      const section = document.createElement('div');
+      section.className = 'bank-section';
+      const lbl = document.createElement('label');
+      lbl.textContent = key;
+      const ta = document.createElement('textarea');
+      ta.id = 'bank-' + key;
+      ta.rows = 10;
+      ta.spellcheck = false;
+      ta.value = items.join('\n');
+      section.appendChild(lbl);
+      section.appendChild(ta);
+      grid.appendChild(section);
+    }
+
+    document.getElementById('prompt-templates').value = data.PROMPT_TEMPLATES.join('\n');
+    document.getElementById('quality-hint').value = data.GLOBAL_QUALITY_HINT || '';
+    promptsLoaded = true;
+  }
+
+  async function savePrompts() {
+    const banks = {};
+    document.querySelectorAll('[id^="bank-"]').forEach(ta => {
+      const key = ta.id.slice(5);
+      banks[key] = ta.value.split('\n').map(s => s.trim()).filter(s => s.length > 0);
+    });
+
+    const templates = document.getElementById('prompt-templates').value
+      .split('\n').map(s => s.trim()).filter(s => s.length > 0);
+
+    const qualityHint = document.getElementById('quality-hint').value.trim();
+
+    const status = document.getElementById('save-status');
+    status.textContent = 'Saving…';
+    status.className = '';
+
+    try {
+      const resp = await fetch('/api/prompts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ PROMPT_BANKS: banks, PROMPT_TEMPLATES: templates, GLOBAL_QUALITY_HINT: qualityHint }),
+      });
+      const result = await resp.json();
+      if (result.ok) {
+        status.textContent = 'Saved!';
+        status.className = 'save-ok';
+        setTimeout(() => { status.textContent = ''; }, 3000);
+      } else {
+        status.textContent = 'Error: ' + (result.error || 'unknown');
+        status.className = 'save-err';
       }
-
-      const data = await response.json();
-      currentIndex = data.index;
-      currentCount = data.count;
-
-      document.getElementById('counter').textContent = `${data.index + 1} of ${data.count}`;
-      document.getElementById('app').innerHTML = `
-        <div class="image-wrap">
-          <img src="${data.image_url}?v=${encodeURIComponent(data.filename)}" alt="${escapeHtml(data.caption)}">
-        </div>
-        <div class="caption">
-          <p>${escapeHtml(data.caption)}</p>
-          <p class="meta">${escapeHtml(data.filename)}${data.created ? ' · ' + escapeHtml(data.created) : ''}</p>
-        </div>
-      `;
+    } catch (err) {
+      status.textContent = 'Network error';
+      status.className = 'save-err';
     }
+  }
 
-    function escapeHtml(value) {
-      return String(value)
-        .replaceAll('&', '&amp;')
-        .replaceAll('<', '&lt;')
-        .replaceAll('>', '&gt;')
-        .replaceAll('"', '&quot;')
-        .replaceAll("'", '&#039;');
-    }
-
-    document.getElementById('prev').addEventListener('click', () => {
-      if (currentCount > 0) loadImage((currentIndex - 1 + currentCount) % currentCount);
-    });
-
-    document.getElementById('next').addEventListener('click', () => {
-      if (currentCount > 0) loadImage((currentIndex + 1) % currentCount);
-    });
-
-    document.getElementById('latest').addEventListener('click', () => loadImage(null));
-
-    document.addEventListener('keydown', (event) => {
-      if (event.key === 'ArrowLeft') document.getElementById('prev').click();
-      if (event.key === 'ArrowRight') document.getElementById('next').click();
-      if (event.key === 'Home') document.getElementById('latest').click();
-    });
-
-    // Refresh metadata occasionally. This picks up new images without forcing
-    // someone browsing older images back to latest.
-    setInterval(() => {
-      if (currentIndex !== null) loadImage(currentIndex);
-    }, 10000);
-
-    loadImage(null);
-  </script>
+  document.getElementById('save-prompts').addEventListener('click', savePrompts);
+</script>
 </body>
 </html>
 """
@@ -334,11 +571,11 @@ def image_file(filename: str):
     if requested.name != filename:
         abort(404)
 
-    path = IMAGE_DIR / filename
+    path = config.IMAGE_DIR / filename
     if not path.exists() or path.suffix.lower() not in IMAGE_EXTENSIONS:
         abort(404)
 
-    return send_from_directory(IMAGE_DIR, filename)
+    return send_from_directory(config.IMAGE_DIR, filename)
 
 
 @app.route("/api/current")
@@ -364,7 +601,41 @@ def api_image(index: Optional[int]):
     })
 
 
-if __name__ == "__main__":
-    print(f"[WEB] Serving {IMAGE_DIR} on http://{WEB_HOST}:{WEB_PORT}/")
-    app.run(host=WEB_HOST, port=WEB_PORT, threaded=True)
+@app.route("/api/prompts", methods=["GET"])
+def api_get_prompts():
+    return jsonify(load_prompts())
 
+
+@app.route("/api/prompts", methods=["POST"])
+def api_save_prompts():
+    data = request.get_json(silent=True)
+    if not data:
+        return jsonify({"error": "No JSON body"}), 400
+
+    banks = data.get("PROMPT_BANKS")
+    templates = data.get("PROMPT_TEMPLATES")
+    quality_hint = data.get("GLOBAL_QUALITY_HINT", "")
+
+    if not isinstance(banks, dict) or not all(isinstance(v, list) for v in banks.values()):
+        return jsonify({"error": "Invalid PROMPT_BANKS"}), 400
+    if not isinstance(templates, list):
+        return jsonify({"error": "Invalid PROMPT_TEMPLATES"}), 400
+
+    payload = {
+        "PROMPT_BANKS": {k: [str(i).strip() for i in v if str(i).strip()] for k, v in banks.items()},
+        "PROMPT_TEMPLATES": [str(t).strip() for t in templates if str(t).strip()],
+        "GLOBAL_QUALITY_HINT": str(quality_hint).strip(),
+    }
+
+    try:
+        with PROMPTS_FILE.open("w", encoding="utf-8") as f:
+            json.dump(payload, f, indent=2, ensure_ascii=False)
+    except OSError as e:
+        return jsonify({"error": str(e)}), 500
+
+    return jsonify({"ok": True})
+
+
+if __name__ == "__main__":
+    print(f"[WEB] Serving {config.IMAGE_DIR} on http://{WEB_HOST}:{WEB_PORT}/")
+    app.run(host=WEB_HOST, port=WEB_PORT, threaded=True)

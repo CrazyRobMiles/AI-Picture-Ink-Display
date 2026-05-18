@@ -1,3 +1,4 @@
+import importlib
 import os
 import random
 import shlex
@@ -9,6 +10,8 @@ import threading
 import queue
 from datetime import datetime
 from pathlib import Path
+
+import config
 
 
 import gpiod
@@ -80,124 +83,8 @@ NEGATIVE_PROMPT = "blurry, distorted, low quality, duplicate, cropped"
 # Set to True if your SD script supports a negative prompt option
 USE_NEGATIVE_PROMPT = False
 
-# If enabled, this text is appended to every prompt
-GLOBAL_QUALITY_HINT = "high detail, beautiful composition"
-
 # Avoid immediate repeats
 RECENT_PROMPTS_TO_AVOID = 10
-
-
-# ------------------------------------------------------------
-# Prompt vocabularies
-# ------------------------------------------------------------
-
-PROMPT_BANKS = {
-    "subject": [
-        "a lonely lighthouse",
-        "a Victorian greenhouse",
-        "a steam train crossing a viaduct",
-        "an ancient oak tree",
-        "a moonlit city street",
-        "a retro-futuristic robot",
-#        "a mountain monastery",
-#        "a glass observatory",
-#        "a floating island",
-#        "a mechanical owl",
-        "a starship captain",
-        "an old telephone",
-        "a happy dog",
-        "a horse",
-        "an old camera",
-        "a futuristic camera",
-        "a retro games console",
-        "an old vending machine",
-        "an old video screen",
-        "a cup of coffee",
-        "an old style hat",
-        "a futuristic cruise ship",
-        "an brass telescope",
-        "an old style computer",
-        "a bicycle",
-        "a piano",
-        "a futuristic jet",
-        "a piece of cheese",
-        "a circus act",
-        "a busy market",
-        "an old car",
-        "a flying car",
-        
-        
-    ],
-    "style": [
-        "ascii art",
-        "oil painting",
-        "watercolour illustration",
-        "storybook art",
-        "cinematic concept art",
-        "retro poster art",
-        "dreamlike surrealism",
-        "detailed pencil drawing",
-        "bold colored cartoon",
-        "newspaper photograph",
-        "fantasy illustration",
-        "Japanese woodblock print style",
-        "soft pastel painting"
-    ],
-    "lighting": [
-        "golden hour lighting",
-        "misty morning light",
-        "dramatic sunset lighting",
-        "moonlight",
-        "soft diffused light",
-        "stormy sky lighting",
-        "candlelit atmosphere",
-        "bright spring daylight",
-        "fog with shafts of light",
-        "twilight glow"
-    ],
-    "mood": [
-        "peaceful",
-        "melancholic",
-        "mysterious",
-        "uplifting",
-        "haunting",
-        "nostalgic",
-        "epic",
-        "playful",
-        "quiet and reflective",
-        "otherworldly"
-    ],
-    "detail": [
-        "rich textures",
-        "intricate details",
-        "subtle colour palette",
-        "layered depth",
-        "fine brushwork",
-        "highly detailed background",
-        "delicate atmosphere",
-        "beautiful contrast",
-        "strong focal point",
-        "carefully balanced composition"
-    ],
-    "environment": [
-        "surrounded by wildflowers",
-        "in a snowy landscape",
-        "overlooking the sea",
-        "in autumn woods",
-        "inside a ruined cathedral",
-        "among rolling hills",
-        "above the clouds",
-        "beside a still lake",
-        "in a rain-soaked alley",
-        "on a windswept cliff"
-    ]
-}
-
-PROMPT_TEMPLATES = [
-    "{subject}, {environment}, {style}, {lighting}, {mood}, {detail}",
-    "{style} of {subject}, {environment}, {lighting}, {mood}, {detail}",
-    "{subject} in {style}, {lighting}, {environment}, {mood}, {detail}",
-]
 
 
 # ------------------------------------------------------------
@@ -215,19 +102,19 @@ def choose(parts, used=None):
 def build_prompt():
     """Build a prompt from the prompt banks."""
     parts = {
-        "subject": choose(PROMPT_BANKS["subject"]),
-        "style": choose(PROMPT_BANKS["style"]),
-        "lighting": choose(PROMPT_BANKS["lighting"]),
-        "mood": choose(PROMPT_BANKS["mood"]),
-        "detail": choose(PROMPT_BANKS["detail"]),
-        "environment": choose(PROMPT_BANKS["environment"]),
+        "subject": choose(config.PROMPT_BANKS["subject"]),
+        "style": choose(config.PROMPT_BANKS["style"]),
+        "lighting": choose(config.PROMPT_BANKS["lighting"]),
+        "mood": choose(config.PROMPT_BANKS["mood"]),
+        "detail": choose(config.PROMPT_BANKS["detail"]),
+        "environment": choose(config.PROMPT_BANKS["environment"]),
     }
 
-    template = random.choice(PROMPT_TEMPLATES)
+    template = random.choice(config.PROMPT_TEMPLATES)
     prompt = template.format(**parts)
 
-    if GLOBAL_QUALITY_HINT:
-        prompt = f"{prompt}, {GLOBAL_QUALITY_HINT}"
+    if config.GLOBAL_QUALITY_HINT:
+        prompt = f"{prompt}, {config.GLOBAL_QUALITY_HINT}"
 
     return prompt
 
@@ -486,6 +373,7 @@ def main():
     print("[INFO] Image stream generator started")
 
     while running:
+        importlib.reload(config)
         prompt = build_non_repeating_prompt()
         output_file = generate_output_filename()
 

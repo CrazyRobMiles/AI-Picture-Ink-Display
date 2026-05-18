@@ -170,3 +170,16 @@ BUTTON_DEBOUNCE_SECONDS = 0.25
 
 HDMI_FULLSCREEN = True
 HDMI_BACKGROUND = (0, 0, 0)
+
+# ------------------------------------------------------------
+# Runtime prompt overrides (written by the web viewer)
+# ------------------------------------------------------------
+
+import json as _json
+_PROMPTS_OVERRIDE = Path(__file__).parent / "prompts.json"
+if _PROMPTS_OVERRIDE.exists():
+    with _PROMPTS_OVERRIDE.open("r", encoding="utf-8") as _f:
+        _data = _json.load(_f)
+    PROMPT_BANKS = _data.get("PROMPT_BANKS", PROMPT_BANKS)
+    PROMPT_TEMPLATES = _data.get("PROMPT_TEMPLATES", PROMPT_TEMPLATES)
+    GLOBAL_QUALITY_HINT = _data.get("GLOBAL_QUALITY_HINT", GLOBAL_QUALITY_HINT)
