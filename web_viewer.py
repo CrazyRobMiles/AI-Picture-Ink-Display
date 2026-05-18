@@ -505,13 +505,13 @@ PAGE_TEMPLATE = """
       ta.id = 'bank-' + key;
       ta.rows = 10;
       ta.spellcheck = false;
-      ta.value = items.join('\n');
+      ta.value = items.join('\\n');
       section.appendChild(lbl);
       section.appendChild(ta);
       grid.appendChild(section);
     }
 
-    document.getElementById('prompt-templates').value = data.PROMPT_TEMPLATES.join('\n');
+    document.getElementById('prompt-templates').value = data.PROMPT_TEMPLATES.join('\\n');
     document.getElementById('quality-hint').value = data.GLOBAL_QUALITY_HINT || '';
     promptsLoaded = true;
   }
@@ -520,11 +520,11 @@ PAGE_TEMPLATE = """
     const banks = {};
     document.querySelectorAll('[id^="bank-"]').forEach(ta => {
       const key = ta.id.slice(5);
-      banks[key] = ta.value.split('\n').map(s => s.trim()).filter(s => s.length > 0);
+      banks[key] = ta.value.split('\\n').map(s => s.trim()).filter(s => s.length > 0);
     });
 
     const templates = document.getElementById('prompt-templates').value
-      .split('\n').map(s => s.trim()).filter(s => s.length > 0);
+      .split('\\n').map(s => s.trim()).filter(s => s.length > 0);
 
     const qualityHint = document.getElementById('quality-hint').value.trim();
 
