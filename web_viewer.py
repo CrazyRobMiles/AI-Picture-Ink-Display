@@ -518,7 +518,7 @@ PAGE_TEMPLATE = """
 
   async function savePrompts() {
     const banks = {};
-    document.querySelectorAll('[id^="bank-"]').forEach(ta => {
+    document.querySelectorAll('textarea[id^="bank-"]').forEach(ta => {
       const key = ta.id.slice(5);
       banks[key] = ta.value.split('\\n').map(s => s.trim()).filter(s => s.length > 0);
     });
@@ -529,6 +529,19 @@ PAGE_TEMPLATE = """
     const qualityHint = document.getElementById('quality-hint').value.trim();
 
     const status = document.getElementById('save-status');
+
+    const emptyBanks = Object.entries(banks).filter(([, v]) => v.length === 0).map(([k]) => k);
+    if (emptyBanks.length > 0) {
+      status.textContent = 'Cannot save: empty bank(s): ' + emptyBanks.join(', ');
+      status.className = 'save-err';
+      return;
+    }
+    if (templates.length === 0) {
+      status.textContent = 'Cannot save: templates list is empty';
+      status.className = 'save-err';
+      return;
+    }
+
     status.textContent = 'Saving…';
     status.className = '';
 
@@ -626,6 +639,12 @@ def api_save_prompts():
         "PROMPT_TEMPLATES": [str(t).strip() for t in templates if str(t).strip()],
         "GLOBAL_QUALITY_HINT": str(quality_hint).strip(),
     }
+
+    empty_banks = [k for k, v in payload["PROMPT_BANKS"].items() if not v]
+    if empty_banks:
+        return jsonify({"error": f"These banks are empty: {', '.join(empty_banks)}"}), 400
+    if not payload["PROMPT_TEMPLATES"]:
+        return jsonify({"error": "Templates list cannot be empty"}), 400
 
     try:
         with PROMPTS_FILE.open("w", encoding="utf-8") as f:
