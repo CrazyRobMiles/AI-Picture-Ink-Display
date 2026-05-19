@@ -1,4 +1,5 @@
 import gc
+import importlib
 import queue
 import random
 import subprocess
@@ -7,6 +8,7 @@ import time
 from datetime import datetime
 from pathlib import Path
 
+import config
 from config import (
     FAIL_RETRY_SECONDS,
     IMAGE_DIR,
@@ -15,10 +17,6 @@ from config import (
     SD_EXTRA_ARGS,
     SD_OUTPUT_ARG,
     SD_PROMPT_ARG,
-    PROMPT_BANKS,
-    PROMPT_TEMPLATES,
-    GLOBAL_QUALITY_HINT,
-    MAX_RECENT_PROMPTS
 )
 
 class PromptBuilder:
@@ -31,21 +29,20 @@ class PromptBuilder:
         
 
     def build_prompt(self):
-        """Build a prompt from the prompt banks."""
         parts = {
-            "subject": self.choose(PROMPT_BANKS["subject"]),
-            "style": self.choose(PROMPT_BANKS["style"]),
-            "lighting": self.choose(PROMPT_BANKS["lighting"]),
-            "mood": self.choose(PROMPT_BANKS["mood"]),
-            "detail": self.choose(PROMPT_BANKS["detail"]),
-            "environment": self.choose(PROMPT_BANKS["environment"]),
+            "subject": self.choose(config.PROMPT_BANKS["subject"]),
+            "style": self.choose(config.PROMPT_BANKS["style"]),
+            "lighting": self.choose(config.PROMPT_BANKS["lighting"]),
+            "mood": self.choose(config.PROMPT_BANKS["mood"]),
+            "detail": self.choose(config.PROMPT_BANKS["detail"]),
+            "environment": self.choose(config.PROMPT_BANKS["environment"]),
         }
 
-        template = random.choice(PROMPT_TEMPLATES)
+        template = random.choice(config.PROMPT_TEMPLATES)
         prompt = template.format(**parts)
 
-        if GLOBAL_QUALITY_HINT:
-            prompt = f"{prompt}, {GLOBAL_QUALITY_HINT}"
+        if config.GLOBAL_QUALITY_HINT:
+            prompt = f"{prompt}, {config.GLOBAL_QUALITY_HINT}"
 
         return prompt
     
@@ -138,6 +135,7 @@ class GeneratorWorker(threading.Thread):
         print("[GEN] Generator active")
         while self.running:
             gc.collect()
+            importlib.reload(config)
 
             prompt = self.prompt_builder.build_non_repeating_prompt()
             output_file = make_output_filename()
