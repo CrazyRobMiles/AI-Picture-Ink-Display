@@ -90,6 +90,19 @@ prompts.json            Runtime prompt overrides (created by the web viewer)
 
 ---
 
+## Inky Display Setup
+
+If you are using a Pimoroni Inky display you must install the Pimoroni drivers and set up a virtual environment as described in the [Pimoroni Inky repository](https://github.com/pimoroni/inky). Follow the instructions there before running this application — the Inky library will not be available through a plain `pip install` without the steps described on that page.
+
+Once the virtual environment is set up, activate it before running any of the scripts:
+
+```bash
+source ~/.virtualenvs/pimoroni/bin/activate
+python3 main.py
+```
+
+---
+
 ## Stable Diffusion Setup
 
 This application expects a working command-line Stable Diffusion tool. The examples assume that you have stored the code and the sd installation in the path **/home/rob**
@@ -138,10 +151,20 @@ python3 autoDraw.py
 
 ## Web Viewer
 
-`web_viewer.py` provides a browser-based interface served on port **8080**. It has two tabs:
+`web_viewer.py` provides a browser-based interface. It has two tabs:
 
 * **Gallery** — browse all generated images with their prompts and timestamps, using on-screen buttons or the arrow keys.
 * **Prompts** — edit the Stable Diffusion prompt banks, templates, and global quality hint directly from the browser. Changes are saved to `prompts.json` and take effect on the next generated image (no restart needed).
+
+### Configuration
+
+Set in `config.py`:
+
+```python
+WEB_VIEWER_AUTOSTART = False   # Launch web viewer automatically alongside main.py
+WEB_VIEWER_HOST = "0.0.0.0"   # Interface to bind (0.0.0.0 = all interfaces)
+WEB_VIEWER_PORT = 8080         # Port (channel) the web viewer listens on
+```
 
 ### Running manually
 
@@ -149,9 +172,15 @@ python3 autoDraw.py
 python3 web_viewer.py
 ```
 
-Then open `http://<pi-address>:8080/` in a browser.
+Then open `http://<pi-address>:8080/` in a browser (replace `8080` if you changed `WEB_VIEWER_PORT`).
 
 The web viewer can run alongside `main.py` or `autoDraw.py`; it only reads and writes files and does not interact with the display hardware.
+
+### Autostart alongside main.py
+
+Set `WEB_VIEWER_AUTOSTART = True` in `config.py` to have `main.py` launch the web viewer automatically as a separate process on startup. It will be stopped cleanly when `main.py` exits.
+
+This is the simplest option when you want both running together without managing two services.
 
 ### How prompt editing works
 

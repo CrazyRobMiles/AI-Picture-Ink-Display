@@ -1,6 +1,9 @@
 import queue
+import subprocess
+import sys
+from pathlib import Path
 
-from config import DISPLAY_TYPE, IMAGE_DIR, INPUT_TYPE
+from config import DISPLAY_TYPE, IMAGE_DIR, INPUT_TYPE, WEB_VIEWER_AUTOSTART
 from controller import Controller
 from display_devices import HdmiDisplayDevice, InkyDisplayDevice
 from generator import GeneratorWorker
@@ -26,6 +29,12 @@ def create_input_worker(command_queue):
 
 def main():
     IMAGE_DIR.mkdir(parents=True, exist_ok=True)
+
+    web_proc = None
+    if WEB_VIEWER_AUTOSTART:
+        web_viewer_path = Path(__file__).parent / "web_viewer.py"
+        web_proc = subprocess.Popen([sys.executable, str(web_viewer_path)])
+        print(f"[MAIN] Web viewer started (pid {web_proc.pid})")
 
     command_queue = queue.Queue()
     generated_queue = queue.Queue()
@@ -53,6 +62,8 @@ def main():
         controller.stop()
         generator_worker.stop()
         input_worker.stop()
+        if web_proc is not None:
+            web_proc.terminate()
 
 
 if __name__ == "__main__":

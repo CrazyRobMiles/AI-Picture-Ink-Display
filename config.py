@@ -172,6 +172,14 @@ HDMI_FULLSCREEN = True
 HDMI_BACKGROUND = (0, 0, 0)
 
 # ------------------------------------------------------------
+# Web viewer settings
+# ------------------------------------------------------------
+
+WEB_VIEWER_AUTOSTART = False   # Launch web viewer automatically as a separate process
+WEB_VIEWER_HOST = "0.0.0.0"
+WEB_VIEWER_PORT = 8080         # Port (channel) the web viewer listens on
+
+# ------------------------------------------------------------
 # Runtime prompt overrides (written by the web viewer)
 # ------------------------------------------------------------
 

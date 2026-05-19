@@ -21,8 +21,8 @@ from flask import Flask, abort, jsonify, render_template_string, request, send_f
 import config
 from image_catalog import IMAGE_EXTENSIONS
 
-WEB_HOST = "0.0.0.0"
-WEB_PORT = 8080
+WEB_HOST = getattr(config, "WEB_VIEWER_HOST", "0.0.0.0")
+WEB_PORT = getattr(config, "WEB_VIEWER_PORT", 8080)
 PROMPT_LOG_NAME = "prompt_log.txt"
 PROMPTS_FILE = Path(__file__).parent / "prompts.json"
 
