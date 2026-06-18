@@ -27,7 +27,7 @@ SD_COMMAND = "/home/rob/OnnxStream/src/build/sd"
 # Extra arguments for your working setup
 SD_EXTRA_ARGS = [
     "--rpi-lowmem",
-    "--steps", "20",
+    "--steps", "40",
     "--models-path", "/home/rob/Models" 
 ]
 
@@ -175,7 +175,7 @@ HDMI_BACKGROUND = (0, 0, 0)
 # Web viewer settings
 # ------------------------------------------------------------
 
-WEB_VIEWER_AUTOSTART = False   # Launch web viewer automatically as a separate process
+WEB_VIEWER_AUTOSTART = True   # Launch web viewer automatically as a separate process
 WEB_VIEWER_HOST = "0.0.0.0"
 WEB_VIEWER_PORT = 8080         # Port (channel) the web viewer listens on
 

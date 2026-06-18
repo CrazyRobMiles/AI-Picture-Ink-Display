@@ -1,0 +1,83 @@
+{
+  "PROMPT_BANKS": {
+    "detail": [
+      "rich textures",
+      "intricate details",
+      "subtle colour palette",
+      "layered depth",
+      "fine brushwork",
+      "highly detailed background",
+      "delicate atmosphere",
+      "beautiful contrast",
+      "strong focal point",
+      "carefully balanced composition"
+    ],
+    "environment": [
+      "surrounded by wildflowers",
+      "in a snowy landscape",
+      "overlooking the sea",
+      "in autumn woods",
+      "inside a ruined cathedral",
+      "among rolling hills",
+      "above the clouds",
+      "beside a still lake",
+      "in a rain-soaked alley",
+      "on a windswept cliff"
+    ],
+    "lighting": [
+      "golden hour lighting",
+      "misty morning light",
+      "dramatic sunset lighting",
+      "moonlight",
+      "soft diffused light",
+      "stormy sky lighting",
+      "candlelit atmosphere",
+      "bright spring daylight",
+      "fog with shafts of light",
+      "twilight glow"
+    ],
+    "mood": [
+      "peaceful",
+      "melancholic",
+      "mysterious",
+      "uplifting",
+      "haunting",
+      "nostalgic",
+      "epic",
+      "playful",
+      "quiet and reflective",
+      "otherworldly"
+    ],
+    "style": [
+      "ascii art",
+      "oil painting",
+      "watercolour illustration",
+      "storybook art",
+      "cinematic concept art",
+      "retro poster art",
+      "dreamlike surrealism",
+      "detailed pencil drawing",
+      "bold colored cartoon",
+      "newspaper photograph",
+      "fantasy illustration",
+      "Japanese woodblock print style",
+      "soft pastel painting"
+    ],
+    "subject": [
+      "a streetlight",
+      "an astronaut",
+      "a cartoon character",
+      "a suspension bridge",
+      "a street scene",
+      "a dancer",
+      "a bird",
+      "a rocket"
+    ]
+  },
+  "PROMPT_TEMPLATES": [
+    "{subject}, {environment}, {style}, {lighting}, {mood}, {detail}",
+    "{style} of {subject}, {environment}, {lighting}, {mood}, {detail}",
+    "{subject} in {style}, {lighting}, {environment}, {mood}, {detail}"
+  ],
+  "GLOBAL_QUALITY_HINT": "high detail, beautiful composition"
+}
