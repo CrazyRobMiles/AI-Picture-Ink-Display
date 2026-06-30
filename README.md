@@ -14,24 +14,67 @@ The system supports:
 
 ---
 
-## OnnyxStream
+# OnnyxStream
 
-The system uses a version of the Stable Diffusion program which has been optimized to run on very small devices such as the Raspberry Pi Zero 2. It will run on a device with only 512Mb of memory. Before you can use this system you should install OnnyxStream from here:
+The system uses a version of the Stable Diffusion program which has been optimized to run on very small devices such as the Raspberry Pi Zero 2. It will run on a device with only 512Mb of memory. 
 
-https://github.com/vitoplantamura/OnnxStream
+## Installing OnnxStream
 
-### Installation steps
+This is the installation sequence. Perform these actions from a terminal window on the target machine. 
 
+### Get the tools
+
+We need to the tools to build the program and run the display. 
 ``` 
+sudo apt update
 sudo apt install build-essential cmake python3
+```
+
+### Make a workspace
+
+We are going to put the OnnyxStream program and the display program in a Programs folder. Let's create the folder and navigate into it:
+
+```
+mkdir ~/Programs
+cd ~/Programs
+```
+### Fetch OnnyxStream from GitHub
+
+We get hold of the program source by cloning the GitHub repository containing it.
+
+```
 git clone https://github.com/vitoplantamura/OnnxStream
-cd OnnxStream/src/
+```
+
+### Build the program from source
+
+If you've not built a program from source code you might find this a bit intimidating, but don't worry. The first thing we do is build a *make* file which tells the build system what to do. Then we use that make file to actually create the program code. This complicated sounding process makes it easier to add the flexibility that allows the same C++ program source to run on a huge range of different target hardware. Let's start by moving into the folder containing the source:
+
+```
+cd ~/Programs/OnnxStream/src/
+```
+**Pro tip:** If you press the **tab** key midway through typing the names of the folders in the path there is a good chance that your terminal program will complete the paths for you. Once we have arrived in the src folder we make a **build** folder there and navigate into it. 
+
+```
 mkdir build
 cd build
+```
+
+Now we use the **cmake** program to create the make file. 
+```
 cmake ..
+```
+This command is especially confusing. The two dots or periods (..) after the command are very important. They give **cmake** the path to the files that will control what it does. These are held in the **src** folder which is the parent folder to **build**. In the shell the character "." means "the current folder" and the sequence ".." means "the parent folder". So this instruction tells **cmake** that the control files are in the parent folder. 
+
+Now **cmake** has made the build files, the next thing we do is ask it to build the program itself. We add the **--build** option and we tell it to make the **Release** version of the code (i.e. the one without any debugging code)
+```
 cmake --build . --config Release
+```
+Note that the single dot (.) is used to tell **cmake** to look in the current folder for all the build control files. On a Raspbery Pi Zero 2 this will take quite a long time to complete. But once it has finished we can ask the newly installed program to tell us about itself:
+```
 ./sd --help
 ```
+There is actually no help command,but this does cause the program to output all its commands.
 
 ### Make a shortcut
 
@@ -54,7 +97,7 @@ source ~/.bashrc
 ```
 mkdir ~/Models
 cd ~/Models
-sd download
+sd --download
 ```
 
 Adding the turbo model:

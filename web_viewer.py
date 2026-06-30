@@ -20,11 +20,13 @@ from flask import Flask, abort, jsonify, render_template_string, request, send_f
 
 import config
 from image_catalog import IMAGE_EXTENSIONS
+from sd_options import DEFAULT_SD_OPTIONS, OPTION_DEFS, OPTION_FLAGS
 
 WEB_HOST = getattr(config, "WEB_VIEWER_HOST", "0.0.0.0")
 WEB_PORT = getattr(config, "WEB_VIEWER_PORT", 8080)
 PROMPT_LOG_NAME = "prompt_log.txt"
 PROMPTS_FILE = Path(__file__).parent / "prompts.json"
+SD_OPTIONS_FILE = Path(__file__).parent / "sd_options.json"
 
 
 @dataclass(frozen=True)
@@ -106,6 +108,17 @@ def load_prompts() -> dict:
         "PROMPT_TEMPLATES": list(config.PROMPT_TEMPLATES),
         "GLOBAL_QUALITY_HINT": config.GLOBAL_QUALITY_HINT,
     }
+
+
+def load_sd_options() -> dict:
+    """Load saved SD option settings from sd_options.json, falling back to defaults."""
+    if SD_OPTIONS_FILE.exists():
+        try:
+            with SD_OPTIONS_FILE.open("r", encoding="utf-8") as f:
+                return json.load(f)
+        except (OSError, json.JSONDecodeError):
+            pass
+    return dict(DEFAULT_SD_OPTIONS)
 
 
 app = Flask(__name__)
@@ -352,6 +365,62 @@ PAGE_TEMPLATE = """
 
     .save-ok  { color: var(--ok);  font-size: 0.9rem; }
     .save-err { color: var(--err); font-size: 0.9rem; }
+
+    /* ---- SD Options view ---- */
+
+    #view-sd {
+      flex: 1;
+      overflow-y: auto;
+      padding: 1.25rem 1rem 2rem;
+    }
+
+    .sd-options-container {
+      max-width: 64rem;
+      margin: 0 auto;
+    }
+
+    .sd-option-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.75rem;
+      padding: 0.6rem 0;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .sd-option-row input[type="checkbox"] {
+      margin-top: 0.3rem;
+      flex-shrink: 0;
+    }
+
+    .sd-option-main { flex: 1; min-width: 0; }
+
+    .sd-option-label {
+      font-weight: 600;
+      font-size: 0.92rem;
+    }
+
+    .sd-option-flag {
+      color: var(--muted);
+      font-size: 0.8rem;
+      font-family: monospace;
+    }
+
+    .sd-option-help {
+      color: var(--muted);
+      font-size: 0.82rem;
+      margin: 0.15rem 0 0.4rem;
+    }
+
+    .sd-option-value {
+      width: 100%;
+      max-width: 24rem;
+      background: var(--input-bg);
+      border: 1px solid var(--border);
+      border-radius: 0.4rem;
+      color: var(--text);
+      font: inherit;
+      padding: 0.4rem 0.6rem;
+    }
   </style>
 </head>
 <body>
@@ -361,6 +430,7 @@ PAGE_TEMPLATE = """
   <nav class="tabs">
     <button class="tab-btn active" id="tab-gallery">Gallery</button>
     <button class="tab-btn" id="tab-prompts">Prompts</button>
+    <button class="tab-btn" id="tab-sd">SD Options</button>
   </nav>
   <div id="counter" class="meta"></div>
 </header>
@@ -402,6 +472,21 @@ PAGE_TEMPLATE = """
     <div class="form-actions">
       <button id="save-prompts" type="button">Save Changes</button>
       <span id="save-status"></span>
+    </div>
+  </div>
+</div>
+
+<!-- SD Options view -->
+<div id="view-sd" style="display:none">
+  <div class="sd-options-container">
+    <p class="prompts-heading">Stable Diffusion Options</p>
+    <p class="hint">Enable an option and (if it takes one) set its value. Changes take effect on the next generated image.</p>
+
+    <div id="sd-option-rows"><div class="empty">Loading&hellip;</div></div>
+
+    <div class="form-actions">
+      <button id="save-sd-options" type="button">Save Changes</button>
+      <span id="save-sd-status"></span>
     </div>
   </div>
 </div>
@@ -474,19 +559,24 @@ PAGE_TEMPLATE = """
 
   let activeTab = 'gallery';
   let promptsLoaded = false;
+  let sdOptionsLoaded = false;
 
   function switchTab(tab) {
     activeTab = tab;
     document.getElementById('tab-gallery').classList.toggle('active', tab === 'gallery');
     document.getElementById('tab-prompts').classList.toggle('active', tab === 'prompts');
+    document.getElementById('tab-sd').classList.toggle('active', tab === 'sd');
     document.getElementById('view-gallery').style.display = tab === 'gallery' ? '' : 'none';
     document.getElementById('view-prompts').style.display = tab === 'prompts' ? '' : 'none';
+    document.getElementById('view-sd').style.display = tab === 'sd' ? '' : 'none';
     document.getElementById('counter').style.display = tab === 'gallery' ? '' : 'none';
     if (tab === 'prompts' && !promptsLoaded) loadPrompts();
+    if (tab === 'sd' && !sdOptionsLoaded) loadSdOptions();
   }
 
   document.getElementById('tab-gallery').addEventListener('click', () => switchTab('gallery'));
   document.getElementById('tab-prompts').addEventListener('click', () => switchTab('prompts'));
+  document.getElementById('tab-sd').addEventListener('click', () => switchTab('sd'));
 
   // ---- Prompts editor ----
 
@@ -567,6 +657,115 @@ PAGE_TEMPLATE = """
   }
 
   document.getElementById('save-prompts').addEventListener('click', savePrompts);
+
+  // ---- SD Options editor ----
+
+  let sdOptionDefs = [];
+
+  async function loadSdOptions() {
+    const resp = await fetch('/api/sd-options', { cache: 'no-store' });
+    const data = await resp.json();
+    sdOptionDefs = data.defs;
+
+    const rows = document.getElementById('sd-option-rows');
+    rows.innerHTML = '';
+
+    for (const opt of data.defs) {
+      const entry = data.values[opt.flag] || {};
+
+      const row = document.createElement('div');
+      row.className = 'sd-option-row';
+
+      const checkbox = document.createElement('input');
+      checkbox.type = 'checkbox';
+      checkbox.id = 'sd-enabled-' + opt.flag;
+      checkbox.checked = !!entry.enabled;
+
+      const main = document.createElement('div');
+      main.className = 'sd-option-main';
+
+      const label = document.createElement('div');
+      label.className = 'sd-option-label';
+      label.textContent = opt.label + ' ';
+      const flagSpan = document.createElement('span');
+      flagSpan.className = 'sd-option-flag';
+      flagSpan.textContent = opt.flag;
+      label.appendChild(flagSpan);
+
+      const help = document.createElement('p');
+      help.className = 'sd-option-help';
+      help.textContent = opt.help;
+
+      main.appendChild(label);
+      main.appendChild(help);
+
+      if (opt.kind === 'select') {
+        const select = document.createElement('select');
+        select.className = 'sd-option-value';
+        select.id = 'sd-value-' + opt.flag;
+        for (const choice of opt.choices) {
+          const o = document.createElement('option');
+          o.value = choice;
+          o.textContent = choice;
+          if (choice === entry.value) o.selected = true;
+          select.appendChild(o);
+        }
+        main.appendChild(select);
+      } else if (opt.kind !== 'bool') {
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.className = 'sd-option-value';
+        input.id = 'sd-value-' + opt.flag;
+        input.value = entry.value || '';
+        main.appendChild(input);
+      }
+
+      row.appendChild(checkbox);
+      row.appendChild(main);
+      rows.appendChild(row);
+    }
+
+    sdOptionsLoaded = true;
+  }
+
+  async function saveSdOptions() {
+    const values = {};
+    for (const opt of sdOptionDefs) {
+      const enabled = document.getElementById('sd-enabled-' + opt.flag).checked;
+      const entry = { enabled };
+      if (opt.kind !== 'bool') {
+        const valueEl = document.getElementById('sd-value-' + opt.flag);
+        entry.value = valueEl.value.trim();
+      }
+      values[opt.flag] = entry;
+    }
+
+    const status = document.getElementById('save-sd-status');
+    status.textContent = 'Saving…';
+    status.className = '';
+
+    try {
+      const saveResp = await fetch('/api/sd-options', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(values),
+      });
+      const result = await saveResp.json();
+      if (result.ok) {
+        status.textContent = 'Saved!';
+        status.className = 'save-ok';
+        setTimeout(() => { status.textContent = ''; }, 3000);
+      } else {
+        status.textContent = 'Error: ' + (result.error || 'unknown');
+        status.className = 'save-err';
+      }
+    } catch (err) {
+      status.textContent = 'Network error';
+      status.className = 'save-err';
+    }
+  }
+
+  document.getElementById('save-sd-options').addEventListener('click', saveSdOptions);
 </script>
 </body>
 </html>
@@ -648,6 +847,35 @@ def api_save_prompts():
 
     try:
         with PROMPTS_FILE.open("w", encoding="utf-8") as f:
+            json.dump(payload, f, indent=2, ensure_ascii=False)
+    except OSError as e:
+        return jsonify({"error": str(e)}), 500
+
+    return jsonify({"ok": True})
+
+
+@app.route("/api/sd-options", methods=["GET"])
+def api_get_sd_options():
+    return jsonify({"defs": OPTION_DEFS, "values": load_sd_options()})
+
+
+@app.route("/api/sd-options", methods=["POST"])
+def api_save_sd_options():
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict):
+        return jsonify({"error": "No JSON body"}), 400
+
+    payload = {}
+    for flag, entry in data.items():
+        if flag not in OPTION_FLAGS or not isinstance(entry, dict):
+            continue
+        saved = {"enabled": bool(entry.get("enabled"))}
+        if "value" in entry:
+            saved["value"] = str(entry["value"]).strip()
+        payload[flag] = saved
+
+    try:
+        with SD_OPTIONS_FILE.open("w", encoding="utf-8") as f:
             json.dump(payload, f, indent=2, ensure_ascii=False)
     except OSError as e:
         return jsonify({"error": str(e)}), 500

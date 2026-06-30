@@ -9,15 +9,7 @@ from datetime import datetime
 from pathlib import Path
 
 import config
-from config import (
-    FAIL_RETRY_SECONDS,
-    IMAGE_DIR,
-    MAX_RECENT_PROMPTS,
-    SD_COMMAND,
-    SD_EXTRA_ARGS,
-    SD_OUTPUT_ARG,
-    SD_PROMPT_ARG,
-)
+from config import FAIL_RETRY_SECONDS, IMAGE_DIR, MAX_RECENT_PROMPTS
 
 class PromptBuilder:
     def __init__(self):
@@ -85,11 +77,11 @@ class GeneratorWorker(threading.Thread):
 
     def build_sd_args(self, prompt: str, output_file: Path):
         args = [
-            SD_COMMAND,
-            SD_PROMPT_ARG, prompt,
-            SD_OUTPUT_ARG, str(output_file),
+            config.SD_COMMAND,
+            config.SD_PROMPT_ARG, prompt,
+            config.SD_OUTPUT_ARG, str(output_file),
         ]
-        args.extend(SD_EXTRA_ARGS)
+        args.extend(config.SD_EXTRA_ARGS)
         return args
 
     def run_sd(self, prompt: str, output_file: Path):
@@ -101,7 +93,7 @@ class GeneratorWorker(threading.Thread):
         try:
             process = subprocess.Popen(
                 args,
-                cwd=str(Path(SD_COMMAND).parent),
+                cwd=str(Path(config.SD_COMMAND).parent),
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
                 text=True,

@@ -24,13 +24,6 @@ MAX_RECENT_PROMPTS = 12
 # Stable Diffusion executable
 SD_COMMAND = "/home/rob/OnnxStream/src/build/sd"
 
-# Extra arguments for your working setup
-SD_EXTRA_ARGS = [
-    "--rpi-lowmem",
-    "--steps", "40",
-    "--models-path", "/home/rob/Models" 
-]
-
 # If your generator uses different argument names, change these.
 SD_PROMPT_ARG = "--prompt"
 SD_OUTPUT_ARG = "--output"
@@ -191,3 +184,18 @@ if _PROMPTS_OVERRIDE.exists():
     PROMPT_BANKS = _data.get("PROMPT_BANKS", PROMPT_BANKS)
     PROMPT_TEMPLATES = _data.get("PROMPT_TEMPLATES", PROMPT_TEMPLATES)
     GLOBAL_QUALITY_HINT = _data.get("GLOBAL_QUALITY_HINT", GLOBAL_QUALITY_HINT)
+
+# ------------------------------------------------------------
+# Runtime SD option overrides (written by the web viewer)
+# ------------------------------------------------------------
+
+from sd_options import DEFAULT_SD_OPTIONS, build_args
+
+_SD_OPTIONS_FILE = Path(__file__).parent / "sd_options.json"
+if _SD_OPTIONS_FILE.exists():
+    with _SD_OPTIONS_FILE.open("r", encoding="utf-8") as _f:
+        SD_OPTIONS = _json.load(_f)
+else:
+    SD_OPTIONS = DEFAULT_SD_OPTIONS
+
+SD_EXTRA_ARGS = build_args(SD_OPTIONS)
