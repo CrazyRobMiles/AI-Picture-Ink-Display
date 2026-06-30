@@ -14,6 +14,62 @@ The system supports:
 
 ---
 
+## OnnyxStream
+
+The system uses a version of the Stable Diffusion program which has been optimized to run on very small devices such as the Raspberry Pi Zero 2. It will run on a device with only 512Mb of memory. Before you can use this system you should install OnnyxStream from here:
+
+https://github.com/vitoplantamura/OnnxStream
+
+### Installation steps
+
+``` 
+sudo apt install build-essential cmake python3
+git clone https://github.com/vitoplantamura/OnnxStream
+cd OnnxStream/src/
+mkdir build
+cd build
+cmake ..
+cmake --build . --config Release
+./sd --help
+```
+
+### Make a shortcut
+
+Edit the bash configuration script:
+
+```
+sudo nano ~/.bashrc
+```
+Add this line at the very end of the file:
+```
+alias sd='~/Programs/OnnxStream/src/build/sd'
+```
+Now re-run the configuration script:
+```
+source ~/.bashrc
+```
+
+### Install the model
+
+```
+mkdir ~/Models
+cd ~/Models
+sd download
+```
+
+Adding the turbo model:
+
+```
+ sd --xl --download
+ ```
+ 
+ Adding the turbo XL model (which is really nice)
+
+ ```
+  sd --xl --turbo --download
+ ```
+
+
 ## Overview
 
 This application combines three core subsystems:

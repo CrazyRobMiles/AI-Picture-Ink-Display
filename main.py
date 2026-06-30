@@ -64,6 +64,12 @@ def main():
         input_worker.stop()
         if web_proc is not None:
             web_proc.terminate()
+            try:
+                web_proc.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                web_proc.kill()
+                web_proc.wait()
+            print("[MAIN] Web viewer stopped")
 
 
 if __name__ == "__main__":
