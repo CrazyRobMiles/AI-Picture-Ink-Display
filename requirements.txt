@@ -1,0 +1,15 @@
+# Core — required for all configurations
+Pillow
+Flask
+
+# HDMI display mode and/or keyboard input
+# Not needed if you are only using the Pimoroni e-ink display and button input
+pygame
+
+# Pimoroni e-ink display and GPIO button input
+# These are installed automatically by the Pimoroni installer (see README).
+# Do NOT install these separately if you used the Pimoroni setup script —
+# doing so may install versions incompatible with the Pimoroni virtual environment.
+# inky
+# gpiod
+# gpiodevice

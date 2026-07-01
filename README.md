@@ -160,9 +160,12 @@ input_devices.py        Input handlers (buttons, keyboard)
 image_catalog.py        Image indexing and navigation
 generator.py            Stable Diffusion integration
 controller.py           Application state and control logic
-web_viewer.py           Web interface: gallery browser and prompt editor
+web_viewer.py           Web interface: gallery browser, prompt editor, SD options
+sd_options.py           Schema and defaults for Stable Diffusion command-line options
 
 prompts.json            Runtime prompt overrides (created by the web viewer)
+sd_options.json         Runtime SD option overrides (created by the web viewer)
+requirements.txt        Python package dependencies
 ```
 
 ---
@@ -181,24 +184,59 @@ prompts.json            Runtime prompt overrides (created by the web viewer)
 ### Software
 
 * Python 3.9+
-* Pillow
-* Pygame (for HDMI mode)
-* Pimoroni Inky library (for e-ink)
-* `gpiod` (for button input)
-* Stable Diffusion executable (e.g. ONNXStream)
+* [Stable Diffusion executable (ONNXStream)](#installing-onnxstream)
+* **Always required via pip:** `Pillow`, `Flask`
+* **HDMI display / keyboard input:** `pygame`
+* **Pimoroni e-ink display:** `inky` — installed by the Pimoroni setup script, not via pip
+* **Pimoroni button input:** `gpiod`, `gpiodevice` — also installed by the Pimoroni setup script
 
 ---
 
-## Inky Display Setup
+## Installation
 
-If you are using a Pimoroni Inky display you must install the Pimoroni drivers and set up a virtual environment as described in the [Pimoroni Inky repository](https://github.com/pimoroni/inky). Follow the instructions there before running this application — the Inky library will not be available through a plain `pip install` without the steps described on that page.
+### Without a Pimoroni display (HDMI / development)
 
-Once the virtual environment is set up, activate it before running any of the scripts:
+Create and activate a virtual environment, then install the required packages:
+
+```bash
+python3 -m venv venv
+source venv/bin/activate        # Windows: venv\Scripts\activate
+pip install -r requirements.txt
+```
+
+Set `DISPLAY_TYPE = "hdmi"` and `INPUT_TYPE = "keyboard"` in `config.py`, then run:
+
+```bash
+python3 main.py
+```
+
+### With a Pimoroni Inky display
+
+The Pimoroni hardware requires its own installer which sets up a dedicated virtual environment (`~/.virtualenvs/pimoroni`) containing the `inky`, `gpiod`, `gpiodevice`, and `Pillow` libraries. Follow the instructions in the [Pimoroni Inky repository](https://github.com/pimoroni/inky) before proceeding — these libraries cannot be installed reliably via a plain `pip install`.
+
+Once the Pimoroni environment is set up, activate it and install the additional libraries that are not part of the Pimoroni framework:
 
 ```bash
 source ~/.virtualenvs/pimoroni/bin/activate
+pip install Flask
+```
+
+`pygame` is not needed in this configuration. Then run:
+
+```bash
 python3 main.py
 ```
+
+#### What the Pimoroni installer provides vs what you add
+
+| Library | Source |
+|---|---|
+| `inky` | Pimoroni installer |
+| `gpiod` | Pimoroni installer |
+| `gpiodevice` | Pimoroni installer |
+| `Pillow` | Pimoroni installer (as a dependency) |
+| `Flask` | You install with `pip install Flask` |
+| `pygame` | Not needed for Pimoroni-only setup |
 
 ---
 
@@ -218,19 +256,13 @@ Example used:
 
 ### Configuration
 
-Edit `config.py`:
+Edit `config.py` to point at your SD executable:
 
 ```python
 SD_COMMAND = "/home/rob/OnnxStream/src/build/sd"
-
-SD_EXTRA_ARGS = [
-    "--rpi-lowmem",
-    "--passes", "6",
-    "--models-path", "/home/rob/Models"
-]
 ```
 
-Adjust arguments to match your working setup.
+All other SD options (model path, steps, memory mode, sampler, etc.) are configured through the **SD Options** tab in the web viewer, or by editing `sd_options.json` directly. See [Web Viewer](#web-viewer) below.
 
 ---
 
@@ -250,10 +282,11 @@ python3 autoDraw.py
 
 ## Web Viewer
 
-`web_viewer.py` provides a browser-based interface. It has two tabs:
+`web_viewer.py` provides a browser-based interface. It has three tabs:
 
 * **Gallery** — browse all generated images with their prompts and timestamps, using on-screen buttons or the arrow keys.
 * **Prompts** — edit the Stable Diffusion prompt banks, templates, and global quality hint directly from the browser. Changes are saved to `prompts.json` and take effect on the next generated image (no restart needed).
+* **SD Options** — enable and configure any Stable Diffusion command-line option (model path, steps, sampler, memory mode, etc.). Changes are saved to `sd_options.json` and take effect on the next generated image (no restart needed).
 
 ### Configuration
 
@@ -355,6 +388,33 @@ DISPLAY_TYPE = "inky"   # or "hdmi"
 * Fullscreen display using Pygame
 * Ideal for development and testing
 * Fast refresh and keyboard control
+
+#### Running without a desktop
+
+By default pygame (via SDL2) expects an X11 or Wayland desktop session. On a headless Raspberry Pi OS Lite installation you can drive HDMI output directly through the kernel using the KMS/DRM backend — no desktop required.
+
+Set this environment variable before running:
+
+```bash
+SDL_VIDEODRIVER=kmsdrm python3 main.py
+```
+
+Or add it to a systemd service unit:
+
+```ini
+[Service]
+Environment=SDL_VIDEODRIVER=kmsdrm
+```
+
+You also need the user running the application to be in the `video`, `render`, and `input` groups (so SDL can access the framebuffer and read keyboard/input events):
+
+```bash
+sudo usermod -aG video,render,input rob
+```
+
+Log out and back in (or reboot) for group changes to take effect.
+
+> **Note:** A display must be physically connected via HDMI at boot time. This does not work over SSH alone — there is no framebuffer to take over without a screen attached.
 
 ---
 
