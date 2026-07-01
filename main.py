@@ -1,6 +1,4 @@
 import queue
-import subprocess
-import sys
 from pathlib import Path
 
 from config import DISPLAY_TYPE, IMAGE_DIR, INPUT_TYPE, WEB_VIEWER_AUTOSTART
@@ -30,11 +28,11 @@ def create_input_worker(command_queue):
 def main():
     IMAGE_DIR.mkdir(parents=True, exist_ok=True)
 
-    web_proc = None
+    web_server = None
     if WEB_VIEWER_AUTOSTART:
-        web_viewer_path = Path(__file__).parent / "web_viewer.py"
-        web_proc = subprocess.Popen([sys.executable, str(web_viewer_path)])
-        print(f"[MAIN] Web viewer started (pid {web_proc.pid})")
+        from web_viewer import WebViewerThread
+        web_server = WebViewerThread()
+        web_server.start()
 
     command_queue = queue.Queue()
     generated_queue = queue.Queue()
@@ -62,14 +60,8 @@ def main():
         controller.stop()
         generator_worker.stop()
         input_worker.stop()
-        if web_proc is not None:
-            web_proc.terminate()
-            try:
-                web_proc.wait(timeout=5)
-            except subprocess.TimeoutExpired:
-                web_proc.kill()
-                web_proc.wait()
-            print("[MAIN] Web viewer stopped")
+        if web_server is not None:
+            web_server.stop()
 
 
 if __name__ == "__main__":

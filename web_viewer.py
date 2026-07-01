@@ -12,11 +12,13 @@ Then browse to:
 from __future__ import annotations
 
 import json
+import threading
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, List, Optional
 
 from flask import Flask, abort, jsonify, render_template_string, request, send_from_directory, url_for
+from werkzeug.serving import make_server
 
 import config
 from image_catalog import IMAGE_EXTENSIONS
@@ -997,6 +999,22 @@ def api_save_sd_options():
         return jsonify({"error": str(e)}), 500
 
     return jsonify({"ok": True})
+
+
+class WebViewerThread(threading.Thread):
+    """Runs the Flask web server on a background thread with a clean shutdown path."""
+
+    def __init__(self):
+        super().__init__(daemon=True)
+        self._server = make_server(WEB_HOST, WEB_PORT, app)
+
+    def run(self):
+        print(f"[WEB] Serving {config.IMAGE_DIR} on http://{WEB_HOST}:{WEB_PORT}/")
+        self._server.serve_forever()
+
+    def stop(self):
+        self._server.shutdown()
+        print("[WEB] Web viewer stopped")
 
 
 if __name__ == "__main__":
