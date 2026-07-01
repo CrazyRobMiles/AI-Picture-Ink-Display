@@ -189,6 +189,13 @@ if _PROMPTS_OVERRIDE.exists():
 # Runtime SD option overrides (written by the web viewer)
 # ------------------------------------------------------------
 
+_APP_SETTINGS_FILE = Path(__file__).parent / "app_settings.json"
+if _APP_SETTINGS_FILE.exists():
+    with _APP_SETTINGS_FILE.open("r", encoding="utf-8") as _f:
+        _app = _json.load(_f)
+    DISPLAY_TYPE = _app.get("DISPLAY_TYPE", DISPLAY_TYPE)
+    INPUT_TYPE = _app.get("INPUT_TYPE", INPUT_TYPE)
+
 from sd_options import DEFAULT_SD_OPTIONS, build_args
 
 _SD_OPTIONS_FILE = Path(__file__).parent / "sd_options.json"

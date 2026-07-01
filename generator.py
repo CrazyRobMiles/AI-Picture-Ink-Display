@@ -11,6 +11,8 @@ from pathlib import Path
 import config
 from config import FAIL_RETRY_SECONDS, IMAGE_DIR, MAX_RECENT_PROMPTS
 
+_SD_OPTIONS_FILE = Path(__file__).parent / "sd_options.json"
+
 class PromptBuilder:
     def __init__(self):
         self.recent_prompts = []
@@ -125,7 +127,18 @@ class GeneratorWorker(threading.Thread):
 
     def run(self):
         print("[GEN] Generator active")
+        waiting = False
         while self.running:
+            if not _SD_OPTIONS_FILE.exists():
+                if not waiting:
+                    print("[GEN] No configuration found — visit the web interface to set up SD options. Generation will start once settings are saved.")
+                    waiting = True
+                time.sleep(5)
+                continue
+            if waiting:
+                print("[GEN] Configuration found — starting generation.")
+                waiting = False
+
             gc.collect()
             importlib.reload(config)
 

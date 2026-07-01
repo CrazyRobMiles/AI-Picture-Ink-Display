@@ -27,6 +27,7 @@ WEB_PORT = getattr(config, "WEB_VIEWER_PORT", 8080)
 PROMPT_LOG_NAME = "prompt_log.txt"
 PROMPTS_FILE = Path(__file__).parent / "prompts.json"
 SD_OPTIONS_FILE = Path(__file__).parent / "sd_options.json"
+APP_SETTINGS_FILE = Path(__file__).parent / "app_settings.json"
 
 
 @dataclass(frozen=True)
@@ -108,6 +109,17 @@ def load_prompts() -> dict:
         "PROMPT_TEMPLATES": list(config.PROMPT_TEMPLATES),
         "GLOBAL_QUALITY_HINT": config.GLOBAL_QUALITY_HINT,
     }
+
+
+def load_app_settings() -> dict:
+    defaults = {"DISPLAY_TYPE": config.DISPLAY_TYPE, "INPUT_TYPE": config.INPUT_TYPE}
+    if APP_SETTINGS_FILE.exists():
+        try:
+            with APP_SETTINGS_FILE.open("r", encoding="utf-8") as f:
+                return {**defaults, **json.load(f)}
+        except (OSError, json.JSONDecodeError):
+            pass
+    return defaults
 
 
 def load_sd_options() -> dict:
@@ -479,6 +491,39 @@ PAGE_TEMPLATE = """
 <!-- SD Options view -->
 <div id="view-sd" style="display:none">
   <div class="sd-options-container">
+
+    <p class="prompts-heading">Application Settings</p>
+    <p class="hint">These settings take effect after restarting the application.</p>
+
+    <div class="sd-option-row">
+      <div class="sd-option-main">
+        <div class="sd-option-label">Display Type</div>
+        <p class="sd-option-help">Output device. <strong>inky</strong> — Pimoroni e-ink display. <strong>hdmi</strong> — HDMI monitor via Pygame.</p>
+        <select id="app-display-type" class="sd-option-value">
+          <option value="inky">inky</option>
+          <option value="hdmi">hdmi</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="sd-option-row">
+      <div class="sd-option-main">
+        <div class="sd-option-label">Input Type</div>
+        <p class="sd-option-help">Control method. <strong>buttons</strong> — Pimoroni GPIO buttons. <strong>keyboard</strong> — keyboard via Pygame (HDMI mode).</p>
+        <select id="app-input-type" class="sd-option-value">
+          <option value="buttons">buttons</option>
+          <option value="keyboard">keyboard</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="form-actions">
+      <button id="save-app-settings" type="button">Save Settings</button>
+      <span id="save-app-status"></span>
+    </div>
+
+    <hr style="border:0;border-top:1px solid var(--border);margin:1.5rem 0">
+
     <p class="prompts-heading">Stable Diffusion Options</p>
     <p class="hint">Enable an option and (if it takes one) set its value. Changes take effect on the next generated image.</p>
 
@@ -571,7 +616,7 @@ PAGE_TEMPLATE = """
     document.getElementById('view-sd').style.display = tab === 'sd' ? '' : 'none';
     document.getElementById('counter').style.display = tab === 'gallery' ? '' : 'none';
     if (tab === 'prompts' && !promptsLoaded) loadPrompts();
-    if (tab === 'sd' && !sdOptionsLoaded) loadSdOptions();
+    if (tab === 'sd' && !sdOptionsLoaded) { loadAppSettings(); loadSdOptions(); }
   }
 
   document.getElementById('tab-gallery').addEventListener('click', () => switchTab('gallery'));
@@ -657,6 +702,46 @@ PAGE_TEMPLATE = """
   }
 
   document.getElementById('save-prompts').addEventListener('click', savePrompts);
+
+  // ---- Application Settings ----
+
+  async function loadAppSettings() {
+    const resp = await fetch('/api/app-settings', { cache: 'no-store' });
+    const data = await resp.json();
+    document.getElementById('app-display-type').value = data.DISPLAY_TYPE || 'inky';
+    document.getElementById('app-input-type').value = data.INPUT_TYPE || 'buttons';
+  }
+
+  async function saveAppSettings() {
+    const payload = {
+      DISPLAY_TYPE: document.getElementById('app-display-type').value,
+      INPUT_TYPE: document.getElementById('app-input-type').value,
+    };
+    const status = document.getElementById('save-app-status');
+    status.textContent = 'Saving…';
+    status.className = '';
+    try {
+      const resp = await fetch('/api/app-settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const result = await resp.json();
+      if (result.ok) {
+        status.textContent = 'Saved — restart the application to apply.';
+        status.className = 'save-ok';
+        setTimeout(() => { status.textContent = ''; }, 5000);
+      } else {
+        status.textContent = 'Error: ' + (result.error || 'unknown');
+        status.className = 'save-err';
+      }
+    } catch (err) {
+      status.textContent = 'Network error';
+      status.className = 'save-err';
+    }
+  }
+
+  document.getElementById('save-app-settings').addEventListener('click', saveAppSettings);
 
   // ---- SD Options editor ----
 
@@ -848,6 +933,37 @@ def api_save_prompts():
     try:
         with PROMPTS_FILE.open("w", encoding="utf-8") as f:
             json.dump(payload, f, indent=2, ensure_ascii=False)
+    except OSError as e:
+        return jsonify({"error": str(e)}), 500
+
+    return jsonify({"ok": True})
+
+
+@app.route("/api/app-settings", methods=["GET"])
+def api_get_app_settings():
+    return jsonify(load_app_settings())
+
+
+@app.route("/api/app-settings", methods=["POST"])
+def api_save_app_settings():
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict):
+        return jsonify({"error": "No JSON body"}), 400
+
+    allowed = {"inky", "hdmi"}
+    display_type = data.get("DISPLAY_TYPE")
+    if display_type not in allowed:
+        return jsonify({"error": f"DISPLAY_TYPE must be one of {sorted(allowed)}"}), 400
+
+    allowed_input = {"buttons", "keyboard"}
+    input_type = data.get("INPUT_TYPE")
+    if input_type not in allowed_input:
+        return jsonify({"error": f"INPUT_TYPE must be one of {sorted(allowed_input)}"}), 400
+
+    payload = {"DISPLAY_TYPE": display_type, "INPUT_TYPE": input_type}
+    try:
+        with APP_SETTINGS_FILE.open("w", encoding="utf-8") as f:
+            json.dump(payload, f, indent=2)
     except OSError as e:
         return jsonify({"error": str(e)}), 500
 

@@ -240,6 +240,74 @@ python3 main.py
 
 ---
 
+## Getting Started
+
+This is the quickest path from a fresh installation to a running picture frame.
+
+### 1. Set the SD executable path
+
+Open `config.py` and set `SD_COMMAND` to the path of your OnnxStream binary:
+
+```python
+SD_COMMAND = "/home/rob/OnnxStream/src/build/sd"
+```
+
+This is the only change you need to make to `config.py` by hand. Everything else is configured through the web interface.
+
+### 2. Start the application
+
+```bash
+python3 main.py
+```
+
+The web server starts immediately. Image generation is intentionally **paused** until you have saved your settings — you will see this message in the terminal:
+
+```
+[GEN] No configuration found — visit the web interface to set up SD options. Generation will start once settings are saved.
+```
+
+### 3. Open the web interface
+
+In a browser on the same network, go to:
+
+```
+http://<pi-address>:8080/
+```
+
+### 4. Configure application settings
+
+Click the **SD Options** tab. At the top, under **Application Settings**:
+
+- Set **Display Type** to `inky` (Pimoroni e-ink) or `hdmi` (HDMI monitor)
+- Set **Input Type** to `buttons` (Pimoroni GPIO buttons) or `keyboard` (keyboard in HDMI mode)
+
+Click **Save Settings**. These take effect after restarting the application.
+
+### 5. Configure Stable Diffusion options
+
+Still on the **SD Options** tab, scroll down to **Stable Diffusion Options** and enable at minimum:
+
+- **Models Path** — the folder where you downloaded the SD model files (e.g. `/home/rob/Models`)
+- **RPi Low Memory** — enable this if you are on a Raspberry Pi Zero 2
+
+Set any other options you need (steps, sampler, model variant, etc.), then click **Save Changes**.
+
+Generation starts automatically on the next loop — no restart needed.
+
+### 6. Customise prompts (optional)
+
+Click the **Prompts** tab to edit the word banks, templates, and quality hint used to build image prompts. Changes take effect on the next generated image.
+
+### 7. Restart to apply display and input settings
+
+If you changed Display Type or Input Type in step 4, restart the application now:
+
+```bash
+python3 main.py
+```
+
+---
+
 ## Stable Diffusion Setup
 
 This application expects a working command-line Stable Diffusion tool. The examples assume that you have stored the code and the sd installation in the path **/home/rob**
