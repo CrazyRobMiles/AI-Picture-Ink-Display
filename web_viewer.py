@@ -286,6 +286,25 @@ PAGE_TEMPLATE = """
     #auto-follow.live { background: #2a6; color: #fff; }
     #auto-follow.live:hover { background: #3b7; }
 
+    /* Live / fullscreen mode */
+    :fullscreen header,
+    :fullscreen footer,
+    :fullscreen .caption { display: none; }
+
+    :fullscreen #view-gallery { height: 100vh; }
+
+    :fullscreen main {
+      padding: 0;
+      grid-template-rows: 1fr;
+    }
+
+    :fullscreen img {
+      max-height: 100vh;
+      max-width: 100vw;
+      border-radius: 0;
+      box-shadow: none;
+    }
+
     .empty {
       margin: auto;
       color: var(--muted);
