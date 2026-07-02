@@ -301,10 +301,9 @@ PAGE_TEMPLATE = """
     }
 
     :fullscreen img {
-      max-width: 100vw;
-      max-height: 100vh;
-      width: auto;
-      height: auto;
+      width: 100vw;
+      height: 100vh;
+      object-fit: cover;
       border-radius: 0;
       box-shadow: none;
     }
