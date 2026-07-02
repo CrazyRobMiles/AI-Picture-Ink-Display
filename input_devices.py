@@ -23,6 +23,14 @@ class InputWorker(threading.Thread):
         self.running = False
 
 
+class NullInputWorker(InputWorker):
+    """Stand-in used when the real input device cannot be initialised."""
+
+    def run(self):
+        while self.running:
+            time.sleep(1)
+
+
 class PimoroniButtonInputWorker(InputWorker):
     def __init__(self, command_queue: queue.Queue):
         super().__init__(command_queue)

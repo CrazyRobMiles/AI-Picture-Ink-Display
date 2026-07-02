@@ -56,6 +56,16 @@ class DisplayDevice:
         pass
 
 
+class NullDisplayDevice(DisplayDevice):
+    """Stand-in used when the real display device cannot be initialised."""
+
+    def get_size(self):
+        return (800, 480)
+
+    def show_image(self, image_path: Path):
+        print(f"[DISPLAY] No display device available — skipping {image_path.name}")
+
+
 class InkyDisplayDevice(DisplayDevice):
     def __init__(self):
         from inky.auto import auto

@@ -31,6 +31,13 @@ PROMPTS_FILE = Path(__file__).parent / "prompts.json"
 SD_OPTIONS_FILE = Path(__file__).parent / "sd_options.json"
 APP_SETTINGS_FILE = Path(__file__).parent / "app_settings.json"
 
+_restart_event: Optional[threading.Event] = None
+
+
+def set_restart_event(event: Optional[threading.Event]) -> None:
+    global _restart_event
+    _restart_event = event
+
 
 @dataclass(frozen=True)
 class ImageEntry:
@@ -730,7 +737,9 @@ PAGE_TEMPLATE = """
       });
       const result = await resp.json();
       if (result.ok) {
-        status.textContent = 'Saved — restart the application to apply.';
+        status.textContent = result.restarting
+          ? 'Settings changed — restarting application…'
+          : 'Saved (no changes).';
         status.className = 'save-ok';
         setTimeout(() => { status.textContent = ''; }, 5000);
       } else {
@@ -963,13 +972,20 @@ def api_save_app_settings():
         return jsonify({"error": f"INPUT_TYPE must be one of {sorted(allowed_input)}"}), 400
 
     payload = {"DISPLAY_TYPE": display_type, "INPUT_TYPE": input_type}
+    current = load_app_settings()
+    settings_changed = (display_type != current.get("DISPLAY_TYPE") or
+                        input_type != current.get("INPUT_TYPE"))
+
     try:
         with APP_SETTINGS_FILE.open("w", encoding="utf-8") as f:
             json.dump(payload, f, indent=2)
     except OSError as e:
         return jsonify({"error": str(e)}), 500
 
-    return jsonify({"ok": True})
+    if settings_changed and _restart_event is not None:
+        _restart_event.set()
+
+    return jsonify({"ok": True, "restarting": settings_changed and _restart_event is not None})
 
 
 @app.route("/api/sd-options", methods=["GET"])
