@@ -291,16 +291,20 @@ PAGE_TEMPLATE = """
     :fullscreen footer,
     :fullscreen .caption { display: none; }
 
-    :fullscreen #view-gallery { height: 100vh; }
-
-    :fullscreen main {
-      padding: 0;
-      grid-template-rows: 1fr;
+    :fullscreen .image-wrap {
+      position: fixed;
+      inset: 0;
+      background: #000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
     }
 
     :fullscreen img {
-      max-height: 100vh;
       max-width: 100vw;
+      max-height: 100vh;
+      width: auto;
+      height: auto;
       border-radius: 0;
       box-shadow: none;
     }
