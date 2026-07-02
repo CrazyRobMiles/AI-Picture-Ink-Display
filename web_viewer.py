@@ -451,7 +451,7 @@ PAGE_TEMPLATE = """
   <nav class="tabs">
     <button class="tab-btn active" id="tab-gallery">Gallery</button>
     <button class="tab-btn" id="tab-prompts">Prompts</button>
-    <button class="tab-btn" id="tab-sd">SD Options</button>
+    <button class="tab-btn" id="tab-sd">Options</button>
   </nav>
   <div id="counter" class="meta"></div>
 </header>

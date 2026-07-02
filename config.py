@@ -22,7 +22,7 @@ MAX_RECENT_PROMPTS = 12
 # ------------------------------------------------------------
 
 # Stable Diffusion executable
-SD_COMMAND = "/home/rob/OnnxStream/src/build/sd"
+SD_COMMAND = "/home/rob/Programs/OnnxStream/src/build/sd"
 
 # If your generator uses different argument names, change these.
 SD_PROMPT_ARG = "--prompt"
