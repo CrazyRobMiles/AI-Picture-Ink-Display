@@ -45,8 +45,9 @@ def main() -> bool:
     web_server = None
 
     if config.WEB_VIEWER_AUTOSTART:
-        from web_viewer import WebViewerThread, set_restart_event
+        from web_viewer import WebViewerThread, set_restart_event, set_command_queue
         set_restart_event(restart_event)
+        set_command_queue(command_queue)
         web_server = WebViewerThread()
         web_server.start()
 
@@ -84,6 +85,7 @@ def main() -> bool:
         input_worker.stop()
         if web_server is not None:
             set_restart_event(None)
+            set_command_queue(None)
             web_server.stop()
 
     return restart_event.is_set()

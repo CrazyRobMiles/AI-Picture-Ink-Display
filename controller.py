@@ -1,6 +1,8 @@
+import importlib
 import queue
 import time
 
+import config
 from config import AUTO_DISPLAY_NEW_IMAGES, CATALOG_RESCAN_SECONDS
 
 
@@ -73,6 +75,13 @@ class Controller:
 
         elif cmd == "show_latest":
             # Jump to the newest image but stay in the current mode.
+            if self.latest_generated_image is not None:
+                self.show(self.latest_generated_image)
+            else:
+                self.show(self.catalog.latest())
+
+        elif cmd == "redisplay":
+            importlib.reload(config)
             if self.latest_generated_image is not None:
                 self.show(self.latest_generated_image)
             else:

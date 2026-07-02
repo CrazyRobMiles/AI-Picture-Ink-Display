@@ -12,6 +12,7 @@ Then browse to:
 from __future__ import annotations
 
 import json
+import queue
 import threading
 from dataclasses import dataclass
 from pathlib import Path
@@ -30,11 +31,17 @@ PROMPT_LOG_NAME = "prompt_log.txt"
 CONFIG_FILE = Path(__file__).parent / "config.json"
 
 _restart_event: Optional[threading.Event] = None
+_command_queue: Optional[queue.Queue] = None
 
 
 def set_restart_event(event: Optional[threading.Event]) -> None:
     global _restart_event
     _restart_event = event
+
+
+def set_command_queue(q: Optional[queue.Queue]) -> None:
+    global _command_queue
+    _command_queue = q
 
 
 @dataclass(frozen=True)
@@ -276,6 +283,9 @@ PAGE_TEMPLATE = """
 
     button:hover, a.button:hover { background: var(--button-hover); }
 
+    #auto-follow.live { background: #2a6; color: #fff; }
+    #auto-follow.live:hover { background: #3b7; }
+
     .empty {
       margin: auto;
       color: var(--muted);
@@ -451,6 +461,7 @@ PAGE_TEMPLATE = """
       <button id="prev" type="button">&#9664; Previous</button>
       <button id="latest" type="button">Latest</button>
       <button id="next" type="button">Next &#9654;</button>
+      <button id="auto-follow" type="button">Live</button>
     </div>
   </footer>
 </div>
@@ -578,13 +589,36 @@ PAGE_TEMPLATE = """
       .replaceAll("'", '&#039;');
   }
 
+  let autoFollowTimer = null;
+
+  function setAutoFollow(enabled) {
+    if (autoFollowTimer) { clearInterval(autoFollowTimer); autoFollowTimer = null; }
+    document.getElementById('auto-follow').classList.toggle('live', enabled);
+    if (enabled) {
+      loadImage(null);
+      autoFollowTimer = setInterval(() => { if (activeTab === 'gallery') loadImage(null); }, 60000);
+      document.documentElement.requestFullscreen().catch(() => {});
+    } else {
+      if (document.fullscreenElement) document.exitFullscreen();
+    }
+  }
+
+  document.addEventListener('fullscreenchange', () => {
+    if (!document.fullscreenElement) setAutoFollow(false);
+  });
+
   document.getElementById('prev').addEventListener('click', () => {
+    setAutoFollow(false);
     if (currentCount > 0) loadImage((currentIndex - 1 + currentCount) % currentCount);
   });
   document.getElementById('next').addEventListener('click', () => {
+    setAutoFollow(false);
     if (currentCount > 0) loadImage((currentIndex + 1) % currentCount);
   });
   document.getElementById('latest').addEventListener('click', () => loadImage(null));
+  document.getElementById('auto-follow').addEventListener('click', () => {
+    setAutoFollow(!document.getElementById('auto-follow').classList.contains('live'));
+  });
 
   document.addEventListener('keydown', (e) => {
     if (activeTab !== 'gallery') return;
@@ -592,10 +626,6 @@ PAGE_TEMPLATE = """
     if (e.key === 'ArrowRight') document.getElementById('next').click();
     if (e.key === 'Home') document.getElementById('latest').click();
   });
-
-  setInterval(() => {
-    if (activeTab === 'gallery' && currentIndex !== null) loadImage(currentIndex);
-  }, 10000);
 
   loadImage(null);
 
@@ -889,6 +919,8 @@ def api_save_config():
     current = load_config()
     settings_changed = (display_type != current.get("DISPLAY_TYPE") or
                         input_type != current.get("INPUT_TYPE"))
+    display_changed = (fit_mode != current.get("DISPLAY_FIT_MODE") or
+                       bg_color.lower() != current.get("DISPLAY_BACKGROUND", "").lower())
 
     payload = {
         "DISPLAY_TYPE": display_type,
@@ -909,6 +941,8 @@ def api_save_config():
 
     if settings_changed and _restart_event is not None:
         _restart_event.set()
+    elif display_changed and _command_queue is not None:
+        _command_queue.put("redisplay")
 
     return jsonify({"ok": True, "restarting": settings_changed and _restart_event is not None})
 
