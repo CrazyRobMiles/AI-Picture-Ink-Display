@@ -1,3 +1,4 @@
+import importlib
 import queue
 import threading
 
@@ -37,6 +38,7 @@ def create_input_worker(command_queue):
 
 def main() -> bool:
     """Run one application lifecycle. Returns True if a restart was requested."""
+    importlib.reload(config)
     config.IMAGE_DIR.mkdir(parents=True, exist_ok=True)
 
     restart_event = threading.Event()

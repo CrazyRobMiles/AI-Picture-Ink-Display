@@ -60,39 +60,25 @@ WEB_VIEWER_HOST = "0.0.0.0"
 WEB_VIEWER_PORT = 8080         # Port (channel) the web viewer listens on
 
 # ------------------------------------------------------------
-# Prompts — loaded from prompts.json (edit via the web viewer)
+# Runtime settings — loaded from config.json (edit via the web viewer)
 # ------------------------------------------------------------
 
 import json as _json
-_PROMPTS_FILE = Path(__file__).parent / "prompts.json"
-if _PROMPTS_FILE.exists():
-    _p = _json.loads(_PROMPTS_FILE.read_text(encoding="utf-8"))
-    PROMPT_BANKS = _p.get("PROMPT_BANKS", {})
-    PROMPT_TEMPLATES = _p.get("PROMPT_TEMPLATES", [])
-    GLOBAL_QUALITY_HINT = _p.get("GLOBAL_QUALITY_HINT", "")
+from sd_options import DEFAULT_SD_OPTIONS, build_args
+
+_CONFIG_FILE = Path(__file__).parent / "config.json"
+if _CONFIG_FILE.exists():
+    _cfg = _json.loads(_CONFIG_FILE.read_text(encoding="utf-8"))
+    DISPLAY_TYPE = _cfg.get("DISPLAY_TYPE", DISPLAY_TYPE)
+    INPUT_TYPE = _cfg.get("INPUT_TYPE", INPUT_TYPE)
+    PROMPT_BANKS = _cfg.get("PROMPT_BANKS", {})
+    PROMPT_TEMPLATES = _cfg.get("PROMPT_TEMPLATES", [])
+    GLOBAL_QUALITY_HINT = _cfg.get("GLOBAL_QUALITY_HINT", "")
+    SD_OPTIONS = _cfg.get("SD_OPTIONS", DEFAULT_SD_OPTIONS)
 else:
     PROMPT_BANKS = {}
     PROMPT_TEMPLATES = []
     GLOBAL_QUALITY_HINT = ""
-
-# ------------------------------------------------------------
-# Runtime SD option overrides (written by the web viewer)
-# ------------------------------------------------------------
-
-_APP_SETTINGS_FILE = Path(__file__).parent / "app_settings.json"
-if _APP_SETTINGS_FILE.exists():
-    with _APP_SETTINGS_FILE.open("r", encoding="utf-8") as _f:
-        _app = _json.load(_f)
-    DISPLAY_TYPE = _app.get("DISPLAY_TYPE", DISPLAY_TYPE)
-    INPUT_TYPE = _app.get("INPUT_TYPE", INPUT_TYPE)
-
-from sd_options import DEFAULT_SD_OPTIONS, build_args
-
-_SD_OPTIONS_FILE = Path(__file__).parent / "sd_options.json"
-if _SD_OPTIONS_FILE.exists():
-    with _SD_OPTIONS_FILE.open("r", encoding="utf-8") as _f:
-        SD_OPTIONS = _json.load(_f)
-else:
     SD_OPTIONS = DEFAULT_SD_OPTIONS
 
 SD_EXTRA_ARGS = build_args(SD_OPTIONS)

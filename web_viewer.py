@@ -27,9 +27,7 @@ from sd_options import DEFAULT_SD_OPTIONS, OPTION_DEFS, OPTION_FLAGS
 WEB_HOST = getattr(config, "WEB_VIEWER_HOST", "0.0.0.0")
 WEB_PORT = getattr(config, "WEB_VIEWER_PORT", 8080)
 PROMPT_LOG_NAME = "prompt_log.txt"
-PROMPTS_FILE = Path(__file__).parent / "prompts.json"
-SD_OPTIONS_FILE = Path(__file__).parent / "sd_options.json"
-APP_SETTINGS_FILE = Path(__file__).parent / "app_settings.json"
+CONFIG_FILE = Path(__file__).parent / "config.json"
 
 _restart_event: Optional[threading.Event] = None
 
@@ -105,35 +103,22 @@ def get_entries() -> List[ImageEntry]:
     return entries
 
 
-def load_prompts() -> dict:
-    """Load prompts from prompts.json."""
-    try:
-        with PROMPTS_FILE.open("r", encoding="utf-8") as f:
-            return json.load(f)
-    except (OSError, json.JSONDecodeError):
-        return {"PROMPT_BANKS": {}, "PROMPT_TEMPLATES": [], "GLOBAL_QUALITY_HINT": ""}
-
-
-def load_app_settings() -> dict:
-    defaults = {"DISPLAY_TYPE": config.DISPLAY_TYPE, "INPUT_TYPE": config.INPUT_TYPE}
-    if APP_SETTINGS_FILE.exists():
+def load_config() -> dict:
+    """Load config.json, returning defaults if the file is missing or unreadable."""
+    if CONFIG_FILE.exists():
         try:
-            with APP_SETTINGS_FILE.open("r", encoding="utf-8") as f:
-                return {**defaults, **json.load(f)}
-        except (OSError, json.JSONDecodeError):
-            pass
-    return defaults
-
-
-def load_sd_options() -> dict:
-    """Load saved SD option settings from sd_options.json, falling back to defaults."""
-    if SD_OPTIONS_FILE.exists():
-        try:
-            with SD_OPTIONS_FILE.open("r", encoding="utf-8") as f:
+            with CONFIG_FILE.open("r", encoding="utf-8") as f:
                 return json.load(f)
         except (OSError, json.JSONDecodeError):
             pass
-    return dict(DEFAULT_SD_OPTIONS)
+    return {
+        "DISPLAY_TYPE": config.DISPLAY_TYPE,
+        "INPUT_TYPE": config.INPUT_TYPE,
+        "PROMPT_BANKS": {},
+        "PROMPT_TEMPLATES": [],
+        "GLOBAL_QUALITY_HINT": "",
+        "SD_OPTIONS": dict(DEFAULT_SD_OPTIONS),
+    }
 
 
 app = Flask(__name__)
@@ -362,24 +347,28 @@ PAGE_TEMPLATE = """
       padding: 0.5rem 0.6rem;
     }
 
-    .form-actions {
-      display: flex;
-      align-items: center;
-      gap: 1rem;
-      padding-top: 0.25rem;
-    }
-
-    #save-prompts {
+    #header-save {
+      margin-left: auto;
       min-width: 9rem;
+      padding: 0.4rem 1rem;
       background: #2a6;
       color: #fff;
       border: 0;
+      border-radius: 0.4rem;
+      font: inherit;
+      font-size: 0.9rem;
+      cursor: pointer;
     }
 
-    #save-prompts:hover { background: #3b7; }
+    #header-save:hover { background: #3b7; }
 
-    .save-ok  { color: var(--ok);  font-size: 0.9rem; }
-    .save-err { color: var(--err); font-size: 0.9rem; }
+    #save-status {
+      font-size: 0.85rem;
+      white-space: nowrap;
+    }
+
+    .save-ok  { color: var(--ok); }
+    .save-err { color: var(--err); }
 
     /* ---- SD Options view ---- */
 
@@ -447,6 +436,8 @@ PAGE_TEMPLATE = """
     <button class="tab-btn" id="tab-prompts">Prompts</button>
     <button class="tab-btn" id="tab-sd">Options</button>
   </nav>
+  <button id="header-save" type="button" style="display:none">Save Settings</button>
+  <span id="save-status"></span>
   <div id="counter" class="meta"></div>
 </header>
 
@@ -483,11 +474,6 @@ PAGE_TEMPLATE = """
       <label>Global Quality Hint &mdash; <span style="font-weight:normal">appended to every prompt</span></label>
       <input type="text" id="quality-hint" spellcheck="false">
     </div>
-
-    <div class="form-actions">
-      <button id="save-prompts" type="button">Save Changes</button>
-      <span id="save-status"></span>
-    </div>
   </div>
 </div>
 
@@ -520,22 +506,12 @@ PAGE_TEMPLATE = """
       </div>
     </div>
 
-    <div class="form-actions">
-      <button id="save-app-settings" type="button">Save Settings</button>
-      <span id="save-app-status"></span>
-    </div>
-
     <hr style="border:0;border-top:1px solid var(--border);margin:1.5rem 0">
 
     <p class="prompts-heading">Stable Diffusion Options</p>
     <p class="hint">Enable an option and (if it takes one) set its value. Changes take effect on the next generated image.</p>
 
     <div id="sd-option-rows"><div class="empty">Loading&hellip;</div></div>
-
-    <div class="form-actions">
-      <button id="save-sd-options" type="button">Save Changes</button>
-      <span id="save-sd-status"></span>
-    </div>
   </div>
 </div>
 
@@ -606,8 +582,6 @@ PAGE_TEMPLATE = """
   // ---- Tab switching ----
 
   let activeTab = 'gallery';
-  let promptsLoaded = false;
-  let sdOptionsLoaded = false;
 
   function switchTab(tab) {
     activeTab = tab;
@@ -618,23 +592,27 @@ PAGE_TEMPLATE = """
     document.getElementById('view-prompts').style.display = tab === 'prompts' ? '' : 'none';
     document.getElementById('view-sd').style.display = tab === 'sd' ? '' : 'none';
     document.getElementById('counter').style.display = tab === 'gallery' ? '' : 'none';
-    if (tab === 'prompts' && !promptsLoaded) loadPrompts();
-    if (tab === 'sd' && !sdOptionsLoaded) { loadAppSettings(); loadSdOptions(); }
+    document.getElementById('header-save').style.display = tab === 'gallery' ? 'none' : '';
   }
 
   document.getElementById('tab-gallery').addEventListener('click', () => switchTab('gallery'));
   document.getElementById('tab-prompts').addEventListener('click', () => switchTab('prompts'));
   document.getElementById('tab-sd').addEventListener('click', () => switchTab('sd'));
 
-  // ---- Prompts editor ----
+  // ---- Config (prompts + app settings + SD options) ----
 
-  async function loadPrompts() {
-    const resp = await fetch('/api/prompts', { cache: 'no-store' });
+  let sdOptionDefs = [];
+
+  async function loadConfig() {
+    const resp = await fetch('/api/config', { cache: 'no-store' });
     const data = await resp.json();
+    const cfg = data.config;
+    sdOptionDefs = data.sd_defs;
 
+    // Populate prompt banks
     const grid = document.getElementById('bank-grid');
     grid.innerHTML = '';
-    for (const [key, items] of Object.entries(data.PROMPT_BANKS)) {
+    for (const [key, items] of Object.entries(cfg.PROMPT_BANKS || {})) {
       const section = document.createElement('div');
       section.className = 'bank-section';
       const lbl = document.createElement('label');
@@ -649,119 +627,20 @@ PAGE_TEMPLATE = """
       grid.appendChild(section);
     }
 
-    document.getElementById('prompt-templates').value = data.PROMPT_TEMPLATES.join('\\n');
-    document.getElementById('quality-hint').value = data.GLOBAL_QUALITY_HINT || '';
-    promptsLoaded = true;
-  }
+    document.getElementById('prompt-templates').value = (cfg.PROMPT_TEMPLATES || []).join('\\n');
+    document.getElementById('quality-hint').value = cfg.GLOBAL_QUALITY_HINT || '';
 
-  async function savePrompts() {
-    const banks = {};
-    document.querySelectorAll('textarea[id^="bank-"]').forEach(ta => {
-      const key = ta.id.slice(5);
-      banks[key] = ta.value.split('\\n').map(s => s.trim()).filter(s => s.length > 0);
-    });
+    // Populate app settings
+    document.getElementById('app-display-type').value = cfg.DISPLAY_TYPE || 'inky';
+    document.getElementById('app-input-type').value = cfg.INPUT_TYPE || 'buttons';
 
-    const templates = document.getElementById('prompt-templates').value
-      .split('\\n').map(s => s.trim()).filter(s => s.length > 0);
-
-    const qualityHint = document.getElementById('quality-hint').value.trim();
-
-    const status = document.getElementById('save-status');
-
-    const emptyBanks = Object.entries(banks).filter(([, v]) => v.length === 0).map(([k]) => k);
-    if (emptyBanks.length > 0) {
-      status.textContent = 'Cannot save: empty bank(s): ' + emptyBanks.join(', ');
-      status.className = 'save-err';
-      return;
-    }
-    if (templates.length === 0) {
-      status.textContent = 'Cannot save: templates list is empty';
-      status.className = 'save-err';
-      return;
-    }
-
-    status.textContent = 'Saving…';
-    status.className = '';
-
-    try {
-      const resp = await fetch('/api/prompts', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ PROMPT_BANKS: banks, PROMPT_TEMPLATES: templates, GLOBAL_QUALITY_HINT: qualityHint }),
-      });
-      const result = await resp.json();
-      if (result.ok) {
-        status.textContent = 'Saved!';
-        status.className = 'save-ok';
-        setTimeout(() => { status.textContent = ''; }, 3000);
-      } else {
-        status.textContent = 'Error: ' + (result.error || 'unknown');
-        status.className = 'save-err';
-      }
-    } catch (err) {
-      status.textContent = 'Network error';
-      status.className = 'save-err';
-    }
-  }
-
-  document.getElementById('save-prompts').addEventListener('click', savePrompts);
-
-  // ---- Application Settings ----
-
-  async function loadAppSettings() {
-    const resp = await fetch('/api/app-settings', { cache: 'no-store' });
-    const data = await resp.json();
-    document.getElementById('app-display-type').value = data.DISPLAY_TYPE || 'inky';
-    document.getElementById('app-input-type').value = data.INPUT_TYPE || 'buttons';
-  }
-
-  async function saveAppSettings() {
-    const payload = {
-      DISPLAY_TYPE: document.getElementById('app-display-type').value,
-      INPUT_TYPE: document.getElementById('app-input-type').value,
-    };
-    const status = document.getElementById('save-app-status');
-    status.textContent = 'Saving…';
-    status.className = '';
-    try {
-      const resp = await fetch('/api/app-settings', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-      const result = await resp.json();
-      if (result.ok) {
-        status.textContent = result.restarting
-          ? 'Settings changed — restarting application…'
-          : 'Saved (no changes).';
-        status.className = 'save-ok';
-        setTimeout(() => { status.textContent = ''; }, 5000);
-      } else {
-        status.textContent = 'Error: ' + (result.error || 'unknown');
-        status.className = 'save-err';
-      }
-    } catch (err) {
-      status.textContent = 'Network error';
-      status.className = 'save-err';
-    }
-  }
-
-  document.getElementById('save-app-settings').addEventListener('click', saveAppSettings);
-
-  // ---- SD Options editor ----
-
-  let sdOptionDefs = [];
-
-  async function loadSdOptions() {
-    const resp = await fetch('/api/sd-options', { cache: 'no-store' });
-    const data = await resp.json();
-    sdOptionDefs = data.defs;
-
+    // Populate SD options
+    const sdValues = cfg.SD_OPTIONS || {};
     const rows = document.getElementById('sd-option-rows');
     rows.innerHTML = '';
 
-    for (const opt of data.defs) {
-      const entry = data.values[opt.flag] || {};
+    for (const opt of sdOptionDefs) {
+      const entry = sdValues[opt.flag] || {};
 
       const row = document.createElement('div');
       row.className = 'sd-option-row';
@@ -814,37 +693,55 @@ PAGE_TEMPLATE = """
       row.appendChild(main);
       rows.appendChild(row);
     }
-
-    sdOptionsLoaded = true;
   }
 
-  async function saveSdOptions() {
-    const values = {};
+  async function saveConfig() {
+    const status = document.getElementById('save-status');
+    status.textContent = 'Saving…';
+    status.className = '';
+
+    // Collect prompt banks
+    const banks = {};
+    document.querySelectorAll('textarea[id^="bank-"]').forEach(ta => {
+      const key = ta.id.slice(5);
+      banks[key] = ta.value.split('\\n').map(s => s.trim()).filter(s => s.length > 0);
+    });
+    const templates = document.getElementById('prompt-templates').value
+      .split('\\n').map(s => s.trim()).filter(s => s.length > 0);
+
+    // Collect SD options
+    const sdOptions = {};
     for (const opt of sdOptionDefs) {
       const enabled = document.getElementById('sd-enabled-' + opt.flag).checked;
       const entry = { enabled };
       if (opt.kind !== 'bool') {
-        const valueEl = document.getElementById('sd-value-' + opt.flag);
-        entry.value = valueEl.value.trim();
+        entry.value = document.getElementById('sd-value-' + opt.flag).value.trim();
       }
-      values[opt.flag] = entry;
+      sdOptions[opt.flag] = entry;
     }
 
-    const status = document.getElementById('save-sd-status');
-    status.textContent = 'Saving…';
-    status.className = '';
+    const payload = {
+      DISPLAY_TYPE: document.getElementById('app-display-type').value,
+      INPUT_TYPE: document.getElementById('app-input-type').value,
+      PROMPT_BANKS: banks,
+      PROMPT_TEMPLATES: templates,
+      GLOBAL_QUALITY_HINT: document.getElementById('quality-hint').value.trim(),
+      SD_OPTIONS: sdOptions,
+    };
 
     try {
-      const saveResp = await fetch('/api/sd-options', {
+      const resp = await fetch('/api/config', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(values),
+        body: JSON.stringify(payload),
       });
-      const result = await saveResp.json();
+      const result = await resp.json();
       if (result.ok) {
-        status.textContent = 'Saved!';
+        status.textContent = result.restarting
+          ? 'Saved — restarting application…'
+          : 'Saved!';
         status.className = 'save-ok';
-        setTimeout(() => { status.textContent = ''; }, 3000);
+        setTimeout(() => { status.textContent = ''; }, 5000);
       } else {
         status.textContent = 'Error: ' + (result.error || 'unknown');
         status.className = 'save-err';
@@ -855,7 +752,9 @@ PAGE_TEMPLATE = """
     }
   }
 
-  document.getElementById('save-sd-options').addEventListener('click', saveSdOptions);
+  document.getElementById('header-save').addEventListener('click', saveConfig);
+
+  loadConfig();
 </script>
 </body>
 </html>
@@ -903,76 +802,66 @@ def api_image(index: Optional[int]):
     })
 
 
-@app.route("/api/prompts", methods=["GET"])
-def api_get_prompts():
-    return jsonify(load_prompts())
+@app.route("/api/config", methods=["GET"])
+def api_get_config():
+    return jsonify({"config": load_config(), "sd_defs": OPTION_DEFS})
 
 
-@app.route("/api/prompts", methods=["POST"])
-def api_save_prompts():
+@app.route("/api/config", methods=["POST"])
+def api_save_config():
     data = request.get_json(silent=True)
-    if not data:
+    if not isinstance(data, dict):
         return jsonify({"error": "No JSON body"}), 400
+
+    display_type = data.get("DISPLAY_TYPE")
+    if display_type not in {"inky", "hdmi"}:
+        return jsonify({"error": "DISPLAY_TYPE must be 'inky' or 'hdmi'"}), 400
+
+    input_type = data.get("INPUT_TYPE")
+    if input_type not in {"buttons", "keyboard"}:
+        return jsonify({"error": "INPUT_TYPE must be 'buttons' or 'keyboard'"}), 400
 
     banks = data.get("PROMPT_BANKS")
     templates = data.get("PROMPT_TEMPLATES")
-    quality_hint = data.get("GLOBAL_QUALITY_HINT", "")
-
     if not isinstance(banks, dict) or not all(isinstance(v, list) for v in banks.values()):
         return jsonify({"error": "Invalid PROMPT_BANKS"}), 400
     if not isinstance(templates, list):
         return jsonify({"error": "Invalid PROMPT_TEMPLATES"}), 400
 
-    payload = {
-        "PROMPT_BANKS": {k: [str(i).strip() for i in v if str(i).strip()] for k, v in banks.items()},
-        "PROMPT_TEMPLATES": [str(t).strip() for t in templates if str(t).strip()],
-        "GLOBAL_QUALITY_HINT": str(quality_hint).strip(),
-    }
-
-    empty_banks = [k for k, v in payload["PROMPT_BANKS"].items() if not v]
+    clean_banks = {k: [str(i).strip() for i in v if str(i).strip()] for k, v in banks.items()}
+    clean_templates = [str(t).strip() for t in templates if str(t).strip()]
+    empty_banks = [k for k, v in clean_banks.items() if not v]
     if empty_banks:
-        return jsonify({"error": f"These banks are empty: {', '.join(empty_banks)}"}), 400
-    if not payload["PROMPT_TEMPLATES"]:
+        return jsonify({"error": f"Empty bank(s): {', '.join(empty_banks)}"}), 400
+    if not clean_templates:
         return jsonify({"error": "Templates list cannot be empty"}), 400
 
-    try:
-        with PROMPTS_FILE.open("w", encoding="utf-8") as f:
-            json.dump(payload, f, indent=2, ensure_ascii=False)
-    except OSError as e:
-        return jsonify({"error": str(e)}), 500
+    sd_options_raw = data.get("SD_OPTIONS", {})
+    clean_sd = {}
+    for flag, entry in sd_options_raw.items():
+        if flag not in OPTION_FLAGS or not isinstance(entry, dict):
+            continue
+        saved = {"enabled": bool(entry.get("enabled"))}
+        if "value" in entry:
+            saved["value"] = str(entry["value"]).strip()
+        clean_sd[flag] = saved
 
-    return jsonify({"ok": True})
-
-
-@app.route("/api/app-settings", methods=["GET"])
-def api_get_app_settings():
-    return jsonify(load_app_settings())
-
-
-@app.route("/api/app-settings", methods=["POST"])
-def api_save_app_settings():
-    data = request.get_json(silent=True)
-    if not isinstance(data, dict):
-        return jsonify({"error": "No JSON body"}), 400
-
-    allowed = {"inky", "hdmi"}
-    display_type = data.get("DISPLAY_TYPE")
-    if display_type not in allowed:
-        return jsonify({"error": f"DISPLAY_TYPE must be one of {sorted(allowed)}"}), 400
-
-    allowed_input = {"buttons", "keyboard"}
-    input_type = data.get("INPUT_TYPE")
-    if input_type not in allowed_input:
-        return jsonify({"error": f"INPUT_TYPE must be one of {sorted(allowed_input)}"}), 400
-
-    payload = {"DISPLAY_TYPE": display_type, "INPUT_TYPE": input_type}
-    current = load_app_settings()
+    current = load_config()
     settings_changed = (display_type != current.get("DISPLAY_TYPE") or
                         input_type != current.get("INPUT_TYPE"))
 
+    payload = {
+        "DISPLAY_TYPE": display_type,
+        "INPUT_TYPE": input_type,
+        "PROMPT_BANKS": clean_banks,
+        "PROMPT_TEMPLATES": clean_templates,
+        "GLOBAL_QUALITY_HINT": str(data.get("GLOBAL_QUALITY_HINT", "")).strip(),
+        "SD_OPTIONS": clean_sd,
+    }
+
     try:
-        with APP_SETTINGS_FILE.open("w", encoding="utf-8") as f:
-            json.dump(payload, f, indent=2)
+        with CONFIG_FILE.open("w", encoding="utf-8") as f:
+            json.dump(payload, f, indent=2, ensure_ascii=False)
     except OSError as e:
         return jsonify({"error": str(e)}), 500
 
@@ -980,35 +869,6 @@ def api_save_app_settings():
         _restart_event.set()
 
     return jsonify({"ok": True, "restarting": settings_changed and _restart_event is not None})
-
-
-@app.route("/api/sd-options", methods=["GET"])
-def api_get_sd_options():
-    return jsonify({"defs": OPTION_DEFS, "values": load_sd_options()})
-
-
-@app.route("/api/sd-options", methods=["POST"])
-def api_save_sd_options():
-    data = request.get_json(silent=True)
-    if not isinstance(data, dict):
-        return jsonify({"error": "No JSON body"}), 400
-
-    payload = {}
-    for flag, entry in data.items():
-        if flag not in OPTION_FLAGS or not isinstance(entry, dict):
-            continue
-        saved = {"enabled": bool(entry.get("enabled"))}
-        if "value" in entry:
-            saved["value"] = str(entry["value"]).strip()
-        payload[flag] = saved
-
-    try:
-        with SD_OPTIONS_FILE.open("w", encoding="utf-8") as f:
-            json.dump(payload, f, indent=2, ensure_ascii=False)
-    except OSError as e:
-        return jsonify({"error": str(e)}), 500
-
-    return jsonify({"ok": True})
 
 
 class WebViewerThread(threading.Thread):
