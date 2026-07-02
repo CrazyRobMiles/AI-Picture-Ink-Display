@@ -106,18 +106,12 @@ def get_entries() -> List[ImageEntry]:
 
 
 def load_prompts() -> dict:
-    """Load prompts from prompts.json, falling back to config defaults."""
-    if PROMPTS_FILE.exists():
-        try:
-            with PROMPTS_FILE.open("r", encoding="utf-8") as f:
-                return json.load(f)
-        except (OSError, json.JSONDecodeError):
-            pass
-    return {
-        "PROMPT_BANKS": {k: list(v) for k, v in config.PROMPT_BANKS.items()},
-        "PROMPT_TEMPLATES": list(config.PROMPT_TEMPLATES),
-        "GLOBAL_QUALITY_HINT": config.GLOBAL_QUALITY_HINT,
-    }
+    """Load prompts from prompts.json."""
+    try:
+        with PROMPTS_FILE.open("r", encoding="utf-8") as f:
+            return json.load(f)
+    except (OSError, json.JSONDecodeError):
+        return {"PROMPT_BANKS": {}, "PROMPT_TEMPLATES": [], "GLOBAL_QUALITY_HINT": ""}
 
 
 def load_app_settings() -> dict:

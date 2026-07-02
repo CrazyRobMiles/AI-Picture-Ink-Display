@@ -1,28 +1,47 @@
 {
   "PROMPT_BANKS": {
-    "detail": [
-      "rich textures",
-      "intricate details",
-      "subtle colour palette",
-      "layered depth",
-      "fine brushwork",
-      "highly detailed background",
-      "delicate atmosphere",
-      "beautiful contrast",
-      "strong focal point",
-      "carefully balanced composition"
+    "subject": [
+      "a lonely lighthouse",
+      "a Victorian greenhouse",
+      "a steam train crossing a viaduct",
+      "an ancient oak tree",
+      "a moonlit city street",
+      "a retro-futuristic robot",
+      "a starship captain",
+      "an old telephone",
+      "a happy dog",
+      "a horse",
+      "an old camera",
+      "a futuristic camera",
+      "an old vending machine",
+      "an old TV",
+      "a cup of coffee",
+      "an old style hat",
+      "a football player",
+      "a futuristic cruise ship",
+      "a brass telescope",
+      "an old style computer",
+      "a bicycle",
+      "a piano",
+      "a circus act",
+      "a busy market",
+      "an old car",
+      "a flying car"
     ],
-    "environment": [
-      "surrounded by wildflowers",
-      "in a snowy landscape",
-      "overlooking the sea",
-      "in autumn woods",
-      "inside a ruined cathedral",
-      "among rolling hills",
-      "above the clouds",
-      "beside a still lake",
-      "in a rain-soaked alley",
-      "on a windswept cliff"
+    "style": [
+      "ascii art",
+      "oil painting",
+      "watercolour illustration",
+      "storybook art",
+      "cinematic concept art",
+      "retro poster art",
+      "dreamlike surrealism",
+      "detailed pencil drawing",
+      "bold colored cartoon",
+      "newspaper photograph",
+      "fantasy illustration",
+      "Japanese woodblock print style",
+      "soft pastel painting"
     ],
     "lighting": [
       "golden hour lighting",
@@ -48,30 +67,29 @@
       "quiet and reflective",
       "otherworldly"
     ],
-    "style": [
-      "ascii art",
-      "oil painting",
-      "watercolour illustration",
-      "storybook art",
-      "cinematic concept art",
-      "retro poster art",
-      "dreamlike surrealism",
-      "detailed pencil drawing",
-      "bold colored cartoon",
-      "newspaper photograph",
-      "fantasy illustration",
-      "Japanese woodblock print style",
-      "soft pastel painting"
+    "detail": [
+      "rich textures",
+      "intricate details",
+      "subtle colour palette",
+      "layered depth",
+      "fine brushwork",
+      "highly detailed background",
+      "delicate atmosphere",
+      "beautiful contrast",
+      "strong focal point",
+      "carefully balanced composition"
     ],
-    "subject": [
-      "a streetlight",
-      "an astronaut",
-      "a cartoon character",
-      "a suspension bridge",
-      "a street scene",
-      "a dancer",
-      "a bird",
-      "a rocket"
+    "environment": [
+      "surrounded by wildflowers",
+      "in a snowy landscape",
+      "overlooking the sea",
+      "in autumn woods",
+      "inside a ruined cathedral",
+      "among rolling hills",
+      "above the clouds",
+      "beside a still lake",
+      "in a rain-soaked alley",
+      "on a windswept cliff"
     ]
   },
   "PROMPT_TEMPLATES": [
