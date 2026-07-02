@@ -2,7 +2,13 @@ from pathlib import Path
 
 from PIL import Image, ImageOps
 
-from config import HDMI_BACKGROUND, HDMI_FULLSCREEN, DISPLAY_FIT_MODE
+import config
+from config import HDMI_FULLSCREEN
+
+
+def _hex_to_rgb(hex_color: str) -> tuple:
+    h = hex_color.lstrip("#")
+    return (int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16))
 
 
 def fit_image(
@@ -78,7 +84,8 @@ class InkyDisplayDevice(DisplayDevice):
 
     def show_image(self, image_path: Path):
         img = Image.open(image_path)
-        img = fit_image(img, self.width, self.height, background=(255, 255, 255), mode=DISPLAY_FIT_MODE)
+        bg = _hex_to_rgb(config.DISPLAY_BACKGROUND)
+        img = fit_image(img, self.width, self.height, background=bg, mode=config.DISPLAY_FIT_MODE)
         self.inky.set_image(img)
         self.inky.show()
 
@@ -97,7 +104,6 @@ class HdmiDisplayDevice(DisplayDevice):
         flags = pygame.FULLSCREEN if HDMI_FULLSCREEN else 0
         self.screen = pygame.display.set_mode((self.width, self.height), flags)
         pygame.display.set_caption("Stable Diffusion Frame")
-        self.background = HDMI_BACKGROUND
 
     def get_size(self):
         return self.width, self.height
@@ -105,7 +111,8 @@ class HdmiDisplayDevice(DisplayDevice):
     def show_image(self, image_path: Path):
         print("Showing an image on HDMI")
         img = Image.open(image_path)
-        img = fit_image(img, self.width, self.height, background=self.background, mode=DISPLAY_FIT_MODE)
+        bg = _hex_to_rgb(config.DISPLAY_BACKGROUND)
+        img = fit_image(img, self.width, self.height, background=bg, mode=config.DISPLAY_FIT_MODE)
 
         mode = img.mode
         size = img.size

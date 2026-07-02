@@ -506,6 +506,26 @@ PAGE_TEMPLATE = """
       </div>
     </div>
 
+    <div class="sd-option-row">
+      <div class="sd-option-main">
+        <div class="sd-option-label">Image Fit Mode</div>
+        <p class="sd-option-help"><strong>Stretch</strong> — fill the display, may distort. <strong>Crop</strong> — fill without distortion, edges are cropped. <strong>Border</strong> — show whole image with coloured borders.</p>
+        <select id="app-fit-mode" class="sd-option-value">
+          <option value="stretch">Stretch</option>
+          <option value="crop">Crop</option>
+          <option value="contain">Border</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="sd-option-row" id="bg-color-row">
+      <div class="sd-option-main">
+        <div class="sd-option-label">Border Colour</div>
+        <p class="sd-option-help">Background colour used when fit mode is Border.</p>
+        <input type="color" id="app-bg-color" value="#ffffff" style="width:4rem;height:2rem;padding:0.1rem;cursor:pointer;background:var(--input-bg);border:1px solid var(--border);border-radius:0.4rem">
+      </div>
+    </div>
+
     <hr style="border:0;border-top:1px solid var(--border);margin:1.5rem 0">
 
     <p class="prompts-heading">Stable Diffusion Options</p>
@@ -633,6 +653,9 @@ PAGE_TEMPLATE = """
     // Populate app settings
     document.getElementById('app-display-type').value = cfg.DISPLAY_TYPE || 'inky';
     document.getElementById('app-input-type').value = cfg.INPUT_TYPE || 'buttons';
+    document.getElementById('app-fit-mode').value = cfg.DISPLAY_FIT_MODE || 'stretch';
+    document.getElementById('app-bg-color').value = cfg.DISPLAY_BACKGROUND || '#ffffff';
+    updateBgColorVisibility();
 
     // Populate SD options
     const sdValues = cfg.SD_OPTIONS || {};
@@ -723,6 +746,8 @@ PAGE_TEMPLATE = """
     const payload = {
       DISPLAY_TYPE: document.getElementById('app-display-type').value,
       INPUT_TYPE: document.getElementById('app-input-type').value,
+      DISPLAY_FIT_MODE: document.getElementById('app-fit-mode').value,
+      DISPLAY_BACKGROUND: document.getElementById('app-bg-color').value,
       PROMPT_BANKS: banks,
       PROMPT_TEMPLATES: templates,
       GLOBAL_QUALITY_HINT: document.getElementById('quality-hint').value.trim(),
@@ -752,6 +777,12 @@ PAGE_TEMPLATE = """
     }
   }
 
+  function updateBgColorVisibility() {
+    const show = document.getElementById('app-fit-mode').value === 'contain';
+    document.getElementById('bg-color-row').style.display = show ? '' : 'none';
+  }
+
+  document.getElementById('app-fit-mode').addEventListener('change', updateBgColorVisibility);
   document.getElementById('header-save').addEventListener('click', saveConfig);
 
   loadConfig();
@@ -821,6 +852,15 @@ def api_save_config():
     if input_type not in {"buttons", "keyboard"}:
         return jsonify({"error": "INPUT_TYPE must be 'buttons' or 'keyboard'"}), 400
 
+    fit_mode = data.get("DISPLAY_FIT_MODE", "stretch")
+    if fit_mode not in {"stretch", "crop", "contain"}:
+        return jsonify({"error": "DISPLAY_FIT_MODE must be 'stretch', 'crop', or 'contain'"}), 400
+
+    import re as _re
+    bg_color = data.get("DISPLAY_BACKGROUND", "#ffffff")
+    if not _re.match(r"^#[0-9a-fA-F]{6}$", str(bg_color)):
+        return jsonify({"error": "DISPLAY_BACKGROUND must be a hex colour like #ffffff"}), 400
+
     banks = data.get("PROMPT_BANKS")
     templates = data.get("PROMPT_TEMPLATES")
     if not isinstance(banks, dict) or not all(isinstance(v, list) for v in banks.values()):
@@ -853,6 +893,8 @@ def api_save_config():
     payload = {
         "DISPLAY_TYPE": display_type,
         "INPUT_TYPE": input_type,
+        "DISPLAY_FIT_MODE": fit_mode,
+        "DISPLAY_BACKGROUND": bg_color.lower(),
         "PROMPT_BANKS": clean_banks,
         "PROMPT_TEMPLATES": clean_templates,
         "GLOBAL_QUALITY_HINT": str(data.get("GLOBAL_QUALITY_HINT", "")).strip(),

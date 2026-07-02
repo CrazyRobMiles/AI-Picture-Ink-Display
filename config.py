@@ -10,6 +10,7 @@ IMAGE_DIR.mkdir(parents=True, exist_ok=True)
 DISPLAY_TYPE = "inky"          # "inky" or "hdmi"
 INPUT_TYPE = "buttons"         # "buttons" or "keyboard"
 DISPLAY_FIT_MODE = "stretch"   # "contain", "crop", or "stretch"
+DISPLAY_BACKGROUND = "#ffffff" # hex colour used when fit mode is "contain"
 
 AUTO_DISPLAY_NEW_IMAGES = True
 DISPLAY_QUEUE_POLL_SECONDS = 0.1
@@ -49,7 +50,6 @@ BUTTON_DEBOUNCE_SECONDS = 0.25
 # ------------------------------------------------------------
 
 HDMI_FULLSCREEN = True
-HDMI_BACKGROUND = (0, 0, 0)
 
 # ------------------------------------------------------------
 # Web viewer settings
@@ -71,6 +71,8 @@ if _CONFIG_FILE.exists():
     _cfg = _json.loads(_CONFIG_FILE.read_text(encoding="utf-8"))
     DISPLAY_TYPE = _cfg.get("DISPLAY_TYPE", DISPLAY_TYPE)
     INPUT_TYPE = _cfg.get("INPUT_TYPE", INPUT_TYPE)
+    DISPLAY_FIT_MODE = _cfg.get("DISPLAY_FIT_MODE", DISPLAY_FIT_MODE)
+    DISPLAY_BACKGROUND = _cfg.get("DISPLAY_BACKGROUND", DISPLAY_BACKGROUND)
     PROMPT_BANKS = _cfg.get("PROMPT_BANKS", {})
     PROMPT_TEMPLATES = _cfg.get("PROMPT_TEMPLATES", [])
     GLOBAL_QUALITY_HINT = _cfg.get("GLOBAL_QUALITY_HINT", "")

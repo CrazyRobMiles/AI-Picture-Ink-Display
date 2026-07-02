@@ -1,6 +1,8 @@
 {
   "DISPLAY_TYPE": "inky",
   "INPUT_TYPE": "buttons",
+  "DISPLAY_FIT_MODE": "stretch",
+  "DISPLAY_BACKGROUND": "#ffffff",
   "PROMPT_BANKS": {
     "subject": [
       "a lonely lighthouse",
