@@ -42,6 +42,8 @@ def main() -> bool:
     config.IMAGE_DIR.mkdir(parents=True, exist_ok=True)
 
     restart_event = threading.Event()
+    command_queue = queue.Queue()
+    generated_queue = queue.Queue()
     web_server = None
 
     if config.WEB_VIEWER_AUTOSTART:
@@ -50,9 +52,6 @@ def main() -> bool:
         set_command_queue(command_queue)
         web_server = WebViewerThread()
         web_server.start()
-
-    command_queue = queue.Queue()
-    generated_queue = queue.Queue()
 
     catalog = ImageCatalog(config.IMAGE_DIR)
     display_device = create_display_device()
