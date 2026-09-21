@@ -1,5 +1,8 @@
 # AI-Picture-Ink-Display
 Runs on a Pi and displays AI generated pictures on an e-ink panel
+
+![Digital ink frame showing a picture of an astronaut](/images/astronaut.jpg)
+
 # Stable Diffusion E-Ink / Display Frame
 
 A Raspberry Pi–based generative art frame that continuously creates images using Stable Diffusion and displays them on a connected screen.
